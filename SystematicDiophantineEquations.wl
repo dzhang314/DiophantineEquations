@@ -75,7 +75,7 @@ AllPolynomials[vars_List, height_Integer, 0] :=
     If[height > 0, {+height, -height}, {}];
 AllPolynomials[vars_List, height_Integer, degree_Integer] :=
 AllPolynomials[vars, height, degree] = If[
-    height >= 2^degree,
+    degree > 0 && height >= 2^degree,
     Join @@ Map[
         AllPolynomials[vars, height, degree, #] &,
         Range[Floor[height / 2^degree], 1, -1]
@@ -101,9 +101,21 @@ AllPolynomials[vars, height, degree, k] = If[
 
 (* Find all elements of Z[x_1, ..., x_n] of a given height. *)
 AllPolynomials[vars_List, 0] = {0};
-AllPolynomials[vars_List, height_Integer] := Join @@ Map[
-    AllPolynomials[vars, height, #] &,
-    Range[Floor@Log2[height], 0, -1]
+AllPolynomials[vars_List, height_Integer] := If[
+    height > 0,
+    Join @@ Map[
+        AllPolynomials[vars, height, #] &,
+        Range[Floor@Log2[height], 0, -1]
+    ],
+    {}
+];
+
+UniquePolynomials[{}, height_Integer] := With[
+    {polys = AllPolynomials[{}, height]},
+    {id = Range[Length[polys]]},
+    {indexMap = AssociationThread[polys, id]},
+    {negMap = Transpose[{id, ToPackedArray[indexMap /@ -polys]}]},
+    polys[[Sort[Min /@ ConnectedComponents@Graph[negMap]]]]
 ];
 
 UniquePolynomials[{var_}, height_Integer] := With[
