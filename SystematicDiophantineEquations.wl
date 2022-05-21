@@ -63,11 +63,23 @@ homogeneousPolynomials[vars_List, degree_Integer, k_Integer] := With[
     Dot[coefficientPartitions[Length[monoms], k], monoms]
 ];
 
+(* Find all elements of Z[x_1, ..., x_n] of a given height and total degree. *)
 AllPolynomials[vars_List, 0, 0] := {0};
 AllPolynomials[vars_List, 0, degree_Integer] := {};
 AllPolynomials[vars_List, height_Integer, 0] :=
     If[height > 0, {+height, -height}, {}];
+AllPolynomials[vars_List, height_Integer, degree_Integer] :=
+AllPolynomials[vars, height, degree] = If[
+    height >= 2^degree,
+    Join @@ Map[
+        AllPolynomials[vars, height, degree, #] &,
+        Range[Floor[height / 2^degree], 1, -1]
+    ],
+    {}
+];
 
+(* Find all elements of Z[x_1, ..., x_n] of a given height and total degree,
+   with a fixed number k of top-degree terms (counted with multiplicity). *)
 AllPolynomials[vars_List, height_Integer, degree_Integer, k_Integer] :=
 AllPolynomials[vars, height, degree, k] = If[
     height >= k * 2^degree,
@@ -82,16 +94,7 @@ AllPolynomials[vars, height, degree, k] = If[
     {}
 ];
 
-AllPolynomials[vars_List, height_Integer, degree_Integer] :=
-AllPolynomials[vars, height, degree] = If[
-    height >= 2^degree,
-    Join @@ Map[
-        AllPolynomials[vars, height, degree, #] &,
-        Range[Floor[height / 2^degree], 1, -1]
-    ],
-    {}
-];
-
+(* Find all elements of Z[x_1, ..., x_n] of a given height. *)
 AllPolynomials[vars_List, 0] = {0};
 AllPolynomials[vars_List, height_Integer] := Join @@ Map[
     AllPolynomials[vars, height, #] &,
