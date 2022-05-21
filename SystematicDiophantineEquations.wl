@@ -35,6 +35,7 @@ SOFTWARE. *)
 BeginPackage["SystematicDiophantineEquations`"];
 
 AllPolynomials::usage = "";
+UniquePolynomials::usage = "";
 
 Begin["`Private`"];
 Needs["Developer`"];
@@ -58,6 +59,10 @@ coefficientPartitions[numTerms_Integer, total_Integer] :=
 coefficientPartitions[numTerms, total] =
     Join @@ signFlips /@ exponentPartitions[numTerms, total];
 
+homogeneousPolynomials[{}, 0, 0] = {0};
+homogeneousPolynomials[{}, 0, k_Integer] := If[k > 0, {+k, -k}, {}];
+homogeneousPolynomials[{}, degree_Integer, 0] = {0};
+homogeneousPolynomials[{}, degree_Integer, k_Integer] = {};
 homogeneousPolynomials[vars_List, degree_Integer, k_Integer] := With[
     {monoms = allMonomials[vars, degree]},
     Dot[coefficientPartitions[Length[monoms], k], monoms]
@@ -99,6 +104,36 @@ AllPolynomials[vars_List, 0] = {0};
 AllPolynomials[vars_List, height_Integer] := Join @@ Map[
     AllPolynomials[vars, height, #] &,
     Range[Floor@Log2[height], 0, -1]
+];
+
+UniquePolynomials[{var_}, height_Integer] := With[
+    {polys = AllPolynomials[{var}, height]},
+    {id = Range[Length[polys]]},
+    {indexMap = AssociationThread[polys, id]},
+    {negMap = Transpose[{id, ToPackedArray[indexMap /@ -polys]}]},
+    {varMap = Transpose[{id, ToPackedArray[
+        indexMap /@ (polys /. var -> -var)
+    ]}]},
+    polys[[Sort[Min /@ ConnectedComponents@Graph@Join[negMap, varMap]]]]
+];
+
+UniquePolynomials[vars_List, height_Integer] := With[
+    {polys = AllPolynomials[vars, height]},
+    {id = Range[Length[polys]]},
+    {indexMap = AssociationThread[polys, id]},
+    {negMap = Transpose[{id, ToPackedArray[indexMap /@ -polys]}]},
+    {varMap = Transpose[{id, ToPackedArray[
+        indexMap /@ (polys /. vars[[1]] -> -vars[[1]])
+    ]}]},
+    {trsMap = Transpose[{id, ToPackedArray[
+        indexMap /@ (polys /. {vars[[1]] -> vars[[2]], vars[[2]] -> vars[[1]]})
+    ]}]},
+    {cycMap = Transpose[{id, ToPackedArray[
+        indexMap /@ (polys /. MapThread[Rule, {vars, RotateLeft[vars]}])
+    ]}]},
+    polys[[Sort[Min /@ ConnectedComponents@Graph@Join[
+        negMap, varMap, trsMap, cycMap
+    ]]]]
 ];
 
 End[]; (* `Private` *)
