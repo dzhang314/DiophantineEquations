@@ -92,6 +92,7 @@ AllPolynomials[vars, height, degree] = If[
     {}
 ];
 
+AllPolynomials[vars_List, 0] = {0};
 AllPolynomials[vars_List, height_Integer] := Join @@ Map[
     AllPolynomials[vars, height, #] &,
     Range[Floor@Log2[height], 0, -1]
