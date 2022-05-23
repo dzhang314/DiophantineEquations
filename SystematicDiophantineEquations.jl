@@ -270,7 +270,7 @@ function has_trivial_root(p::Polynomial{N}) where {N}
     return false
 end
 
-function has_trivial_variable(p::Polynomial{N}, i::Int) where {N}
+function has_linear_variable(p::Polynomial{N}, i::Int) where {N}
     @inbounds for (_, m) in p
         if m[i] != 0
             if m[i] != 1
@@ -286,9 +286,9 @@ function has_trivial_variable(p::Polynomial{N}, i::Int) where {N}
     return true
 end
 
-function has_trivial_variable(p::Polynomial{N}) where {N}
+function has_linear_variable(p::Polynomial{N}) where {N}
     for i = 1 : N
-        if has_trivial_variable(p, i)
+        if has_linear_variable(p, i)
             return true
         end
     end
@@ -306,7 +306,7 @@ function nontrivial_polynomials(::Val{N}, height::Int) where {N}
             for point in product_space
                 poly = reduce(vcat, point)
                 if (uses_all_variables(poly) && coefficient_gcd(poly) == 1
-                                             && !has_trivial_variable(poly)
+                                             && !has_linear_variable(poly)
                                              && !has_trivial_root(poly))
                     push!(result, poly)
                 end
