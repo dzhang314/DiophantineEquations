@@ -1,7 +1,7 @@
 module SystematicDiophantineEquations
 
-export Monomial, Polynomial, all_polynomials, irreducible_polynomials,
-    dedup, nontrivial_polynomials
+export Monomial, Polynomial, all_polynomials, to_degrevlex_string,
+    irreducible_polynomials, dedup, nontrivial_polynomials
 
 using Graphs
 using Singular
@@ -193,6 +193,36 @@ end
 
 ################################################################################
 
+@inline function ((c, p)::Monomial{N})(x::NTuple{N, T}) where {N, T}
+    @inbounds return c * prod(ntuple(i -> x[i]^p[i], Val{N}()))
+end
+
+@inline function (p::Polynomial{N})(x::NTuple{N, T}) where {N, T}
+    result = 0
+    @inbounds for m in p
+        result += m(x)
+    end
+    return result
+end
+
+function canonical_variables(n::Int)
+    if n <= 3
+        return string.(Vector{Char}("xyz"[1:n]))
+    elseif n <= 26
+        return string.(Vector{Char}("abcdefghijklmnopqrstuvwxyz"[1:n]))
+    else
+        error()
+    end
+end
+
+function to_degrevlex_string(p::Polynomial{N}) where {N}
+    _, vars = PolynomialRing(ZZ, canonical_variables(N))
+    x = ntuple(i -> (@inbounds vars[i]), Val{N}())
+    return string(p(x))
+end
+
+################################################################################
+
 function uses_variable(p::Polynomial{N}, i::Int) where {N}
     @inbounds for (c, m) in p
         if m[i] != 0
@@ -290,18 +320,6 @@ function apply_signflip!(p::Polynomial{N}) where {N}
     return p
 end
 
-@inline function ((c, p)::Monomial{N})(x::NTuple{N, T}) where {N, T}
-    @inbounds return c * prod(ntuple(i -> x[i]^p[i], Val{N}()))
-end
-
-@inline function (p::Polynomial{N})(x::NTuple{N, T}) where {N, T}
-    result = 0
-    @inbounds for m in p
-        result += m(x)
-    end
-    return result
-end
-
 function dedup(polys::Vector{Polynomial{N}}) where {N}
     index_dict = Dict{Polynomial{N}, Int}()
     for (i, p) in enumerate(polys)
@@ -318,7 +336,7 @@ function dedup(polys::Vector{Polynomial{N}}) where {N}
         apply_signflip!(p)
         add_edge!(g, i, index_dict[sort!(apply_cycle!(p))])
     end
-    _, vars = PolynomialRing(ZZ, ["" for _ = 1 : N])
+    _, vars = PolynomialRing(ZZ, canonical_variables(N))
     x = ntuple(i -> (@inbounds vars[i]), Val{N}())
     result = Polynomial{N}[]
     for comp in connected_components(g)
