@@ -332,6 +332,24 @@ end
 
 ################################################################################
 
+function is_positive_semidefinite(p::Polynomial{N}) where {N}
+    for (c, m) in p
+        if c < 0 || !all(m .& 1 .== 0)
+            return false
+        end
+    end
+    return true
+end
+
+function is_negative_semidefinite(p::Polynomial{N}) where {N}
+    for (c, m) in p
+        if c > 0 || !all(m .& 1 .== 0)
+            return false
+        end
+    end
+    return true
+end
+
 function has_linear_variable(p::Polynomial{N}, i::Int) where {N}
     @inbounds (_, n) = p[i]
     @inbounds for (j, (_, m)) in enumerate(p)
@@ -394,8 +412,8 @@ function nontrivial_polynomials(::Val{N}, height::Int) where {N}
     trial_roots = reduce(vcat, shell(Val{N}(), k) for k = 0 : 3)
     trial_roots_2 = positive_orthant(Val{N}(), 2)
     trial_roots_3 = positive_orthant(Val{N}(), 3)
+    trial_roots_4 = positive_orthant(Val{N}(), 4)
     trial_roots_5 = positive_orthant(Val{N}(), 5)
-    trial_roots_7 = positive_orthant(Val{N}(), 7)
     for partition in power_of_two_partitions(height)
         iterators = [
             HomogeneousPolynomialIterator{N}(weight, degree)
@@ -405,11 +423,13 @@ function nontrivial_polynomials(::Val{N}, height::Int) where {N}
             p = get_polynomial(iterators)
             if (uses_all_variables(p) &&
                 !has_linear_variable(p) &&
+                !is_positive_semidefinite(p) &&
+                !is_negative_semidefinite(p) &&
                 has_coprime_coefficients(p) &&
                 has_root_modulo(p, 2, trial_roots_2) &&
                 has_root_modulo(p, 3, trial_roots_3) &&
+                has_root_modulo(p, 4, trial_roots_4) &&
                 has_root_modulo(p, 5, trial_roots_5) &&
-                has_root_modulo(p, 7, trial_roots_7) &&
                 !has_root(p, trial_roots))
                 push!(result, p)
             end
