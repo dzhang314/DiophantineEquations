@@ -387,6 +387,58 @@ function has_linear_variable(p::Polynomial{N}) where {N}
     return false
 end
 
+function is_elliptic_curve_1(p::Polynomial{2})
+    found_cubic = false
+    found_quadratic = false
+    for (c, m) in p
+        if m == (3, 0)
+            if abs(c) != 1
+                return false
+            end
+            found_cubic = true
+        elseif m == (0, 2)
+            if abs(c) != 1
+                return false
+            end
+            found_quadratic = true
+        else
+            if sum(m) > 2
+                return false
+            end
+        end
+    end
+    return found_cubic && found_quadratic
+end
+
+function is_elliptic_curve_2(p::Polynomial{2})
+    found_cubic = false
+    found_quadratic = false
+    for (c, m) in p
+        if m == (0, 3)
+            if abs(c) != 1
+                return false
+            end
+            found_cubic = true
+        elseif m == (2, 0)
+            if abs(c) != 1
+                return false
+            end
+            found_quadratic = true
+        else
+            if sum(m) > 2
+                return false
+            end
+        end
+    end
+    return found_cubic && found_quadratic
+end
+
+function is_elliptic_curve(p::Polynomial{2})
+    return is_elliptic_curve_1(p) || is_elliptic_curve_2(p)
+end
+
+is_elliptic_curve(p::Polynomial{N}) where {N} = false
+
 function shell(::Val{N}, n::Int) where {N}
     result = NTuple{N, Int}[]
     for x in Iterators.product(ntuple(_ -> -n:n, Val{N}())...)
@@ -443,6 +495,7 @@ function nontrivial_polynomials(::Val{N}, height::Int) where {N}
                 !has_linear_variable(p) &&
                 !is_positive_semidefinite(p) &&
                 !is_negative_semidefinite(p) &&
+                !is_elliptic_curve(p) &&
                 has_coprime_coefficients(p) &&
                 has_root_modulo(p, 2, trial_roots_2) &&
                 has_root_modulo(p, 3, trial_roots_3) &&
