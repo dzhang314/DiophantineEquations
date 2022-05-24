@@ -230,6 +230,8 @@ function canonical_variables(n::Int)
     end
 end
 
+Base.prod((x,)::Tuple{spoly{n_Z}}) = x
+
 function degrevlex_string(p::Polynomial{N}) where {N}
     if N > 0
         _, vars = PolynomialRing(ZZ, canonical_variables(N))
