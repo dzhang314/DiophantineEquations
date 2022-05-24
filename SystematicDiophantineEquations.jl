@@ -187,17 +187,19 @@ function all_polynomials(::Val{N}, height::Int, all_vars::Bool=true) where {N}
             HomogeneousPolynomialIterator{N}(weight, degree)
             for (weight, degree) in partition
         ]
-        while true
-            p = get_polynomial(iterators)
-            if all_vars
-                if uses_all_variables(p)
+        if all(length(it.monomials) > 0 for it in iterators)
+            while true
+                p = get_polynomial(iterators)
+                if all_vars
+                    if uses_all_variables(p)
+                        push!(result, p)
+                    end
+                else
                     push!(result, p)
                 end
-            else
-                push!(result, p)
-            end
-            if !incr_polynomial!(iterators)
-                break
+                if !incr_polynomial!(iterators)
+                    break
+                end
             end
         end
     end
@@ -272,13 +274,15 @@ function irreducible_polynomials(::Val{N}, height::Int) where {N}
             HomogeneousPolynomialIterator{N}(weight, degree)
             for (weight, degree) in partition
         ]
-        while true
-            p = get_polynomial(iterators)
-            if uses_all_variables(p) && has_coprime_coefficients(p)
-                push!(result, p)
-            end
-            if !incr_polynomial!(iterators)
-                break
+        if all(length(it.monomials) > 0 for it in iterators)
+            while true
+                p = get_polynomial(iterators)
+                if uses_all_variables(p) && has_coprime_coefficients(p)
+                    push!(result, p)
+                end
+                if !incr_polynomial!(iterators)
+                    break
+                end
             end
         end
     end
@@ -553,23 +557,25 @@ function nontrivial_polynomials(::Val{N}, height::Int) where {N}
             HomogeneousPolynomialIterator{N}(weight, degree)
             for (weight, degree) in partition
         ]
-        while true
-            p = get_polynomial(iterators)
-            if (uses_all_variables(p) &&
-                !has_linear_variable(p) &&
-                !is_positive_semidefinite(p) &&
-                !is_negative_semidefinite(p) &&
-                !is_elliptic_curve(p) &&
-                has_coprime_coefficients(p) &&
-                has_root_modulo(p, 2) &&
-                has_root_modulo(p, 3) &&
-                has_root_modulo(p, 4) &&
-                has_root_modulo(p, 5) &&
-                !has_small_root(p))
-                push!(result, p)
-            end
-            if !incr_polynomial!(iterators)
-                break
+        if all(length(it.monomials) > 0 for it in iterators)
+            while true
+                p = get_polynomial(iterators)
+                if (uses_all_variables(p) &&
+                    !has_linear_variable(p) &&
+                    !is_positive_semidefinite(p) &&
+                    !is_negative_semidefinite(p) &&
+                    !is_elliptic_curve(p) &&
+                    has_coprime_coefficients(p) &&
+                    has_root_modulo(p, 2) &&
+                    has_root_modulo(p, 3) &&
+                    has_root_modulo(p, 4) &&
+                    has_root_modulo(p, 5) &&
+                    !has_small_root(p))
+                    push!(result, p)
+                end
+                if !incr_polynomial!(iterators)
+                    break
+                end
             end
         end
     end
