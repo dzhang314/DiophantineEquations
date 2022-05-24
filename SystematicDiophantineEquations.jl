@@ -1,6 +1,6 @@
 module SystematicDiophantineEquations
 
-export Monomial, Polynomial, all_polynomials, to_degrevlex_string,
+export Monomial, Polynomial, all_polynomials, degrevlex_string,
     irreducible_polynomials, dedup, nontrivial_polynomials
 
 using Graphs
@@ -230,10 +230,18 @@ function canonical_variables(n::Int)
     end
 end
 
-function to_degrevlex_string(p::Polynomial{N}) where {N}
-    _, vars = PolynomialRing(ZZ, canonical_variables(N))
-    x = ntuple(i -> (@inbounds vars[i]), Val{N}())
-    return string(p(x))
+function degrevlex_string(p::Polynomial{N}) where {N}
+    if N > 0
+        _, vars = PolynomialRing(ZZ, canonical_variables(N))
+        x = ntuple(i -> (@inbounds vars[i]), Val{N}())
+        return string(p(x))
+    else
+        result = 0
+        for (c, _) in p
+            result += c
+        end
+        return string(result)
+    end
 end
 
 ################################################################################
@@ -291,6 +299,7 @@ end
 
 ################################################################################
 
+apply_transposition(m::Monomial{0}) = m
 apply_transposition(m::Monomial{1}) = m
 
 function apply_transposition((c, (i, j, k...))::Monomial{N}) where {N}
@@ -303,6 +312,8 @@ function apply_transposition!(p::Polynomial{N}) where {N}
     end
     return p
 end
+
+apply_cycle(m::Monomial{0}) = m
 
 function apply_cycle((c, (i, j...))::Monomial{N}) where {N}
     return (c, (j..., i))
@@ -325,6 +336,8 @@ function apply_negation!(p::Polynomial{N}) where {N}
     end
     return p
 end
+
+apply_signflip(m::Monomial{0}) = m
 
 function apply_signflip((c, (i, j...))::Monomial{N}) where {N}
     return (ifelse(i & 1 == 0, c, -c), (i, j...))
