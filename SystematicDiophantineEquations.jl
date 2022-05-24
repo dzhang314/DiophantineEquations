@@ -67,8 +67,12 @@ struct HomogeneousPolynomialIterator{N}
                                               degree::Int) where {N}
         monomials = NTuple{N, Int}.(integer_partitions(degree, N))
         dense_partition = zeros(Int, length(monomials))
-        dense_partition[1] = weight
-        sparse_partition = [(weight, 1)]
+        if length(dense_partition) > 0
+            dense_partition[1] = weight
+            sparse_partition = [(weight, 1)]
+        else
+            sparse_partition = Tuple{Int, Int}[]
+        end
         sign_pattern = fill(UInt(0))
         return new(monomials, dense_partition, sparse_partition, sign_pattern)
     end
@@ -125,9 +129,11 @@ function reset!(it::HPI{N}) where {N}
     sparse = it.sparse_partition
     weight = sum(dense)
     fill!(dense, 0)
-    dense[1] = weight
     empty!(sparse)
-    push!(sparse, (weight, 1))
+    if length(dense) > 0
+        dense[1] = weight
+        push!(sparse, (weight, 1))
+    end
     it.sign_pattern[] = UInt(0)
     return it
 end
@@ -174,7 +180,7 @@ end
 
 ################################################################################
 
-function all_polynomials(::Val{N}, height::Int) where {N}
+function all_polynomials(::Val{N}, height::Int, all_vars::Bool=true) where {N}
     result = Polynomial{N}[]
     for partition in power_of_two_partitions(height)
         iterators = [
@@ -182,7 +188,14 @@ function all_polynomials(::Val{N}, height::Int) where {N}
             for (weight, degree) in partition
         ]
         while true
-            push!(result, get_polynomial(iterators))
+            p = get_polynomial(iterators)
+            if all_vars
+                if uses_all_variables(p)
+                    push!(result, p)
+                end
+            else
+                push!(result, p)
+            end
             if !incr_polynomial!(iterators)
                 break
             end
@@ -320,7 +333,7 @@ function apply_signflip!(p::Polynomial{N}) where {N}
     return p
 end
 
-function dedup(polys::Vector{Polynomial{N}}) where {N}
+function dedup(polys::Vector{Polynomial{N}}, factor::Bool=true) where {N}
     index_dict = Dict{Polynomial{N}, Int}()
     for (i, p) in enumerate(polys)
         index_dict[sort(p)] = i
@@ -336,13 +349,19 @@ function dedup(polys::Vector{Polynomial{N}}) where {N}
         apply_signflip!(p)
         add_edge!(g, i, index_dict[sort!(apply_cycle!(p))])
     end
-    _, vars = PolynomialRing(ZZ, canonical_variables(N))
-    x = ntuple(i -> (@inbounds vars[i]), Val{N}())
     result = Polynomial{N}[]
-    for comp in connected_components(g)
-        @inbounds p = polys[comp[1]]
-        if length(factor(p(x)).fac) == 1
-            push!(result, p)
+    if factor
+        _, vars = PolynomialRing(ZZ, canonical_variables(N))
+        x = ntuple(i -> (@inbounds vars[i]), Val{N}())
+        for comp in connected_components(g)
+            @inbounds p = polys[comp[1]]
+            if length(factor(p(x)).fac) == 1
+                push!(result, p)
+            end
+        end
+    else
+        @inbounds for comp in connected_components(g)
+            push!(result, polys[comp[1]])
         end
     end
     return result
