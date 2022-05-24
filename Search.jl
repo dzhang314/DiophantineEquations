@@ -3,8 +3,8 @@ using Singular
 
 push!(LOAD_PATH, @__DIR__)
 using SystematicDiophantineEquations
-using SystematicDiophantineEquations: shell, positive_orthant,
-    has_root, has_root_modulo, canonical_variables
+using SystematicDiophantineEquations:
+    shell, has_root, has_root_modulo, canonical_variables
 
 function has_unbounded_roots(p::Polynomial{N}) where {N}
     vars = MathLink.WSymbol.(canonical_variables(N))
@@ -29,7 +29,6 @@ end
 
 function main(::Val{N}, max_root::Int, max_modulus::Int) where {N}
     trial_roots = reduce(vcat, shell(Val{N}(), k) for k = 0 : max_root)
-    orthants = [positive_orthant(Val{N}(), k) for k = 1 : max_modulus]
     height = 0
     while true
         println("================================================= ", height)
@@ -40,7 +39,7 @@ function main(::Val{N}, max_root::Int, max_modulus::Int) where {N}
             end
             found = false
             for k = 2 : max_modulus
-                if !has_root_modulo(p, k, orthants[k])
+                if !has_root_modulo(p, k)
                     found = true
                     break
                 end

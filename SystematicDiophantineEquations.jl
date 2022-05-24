@@ -439,20 +439,14 @@ end
 
 is_elliptic_curve(p::Polynomial{N}) where {N} = false
 
+################################################################################
+
 function shell(::Val{N}, n::Int) where {N}
     result = NTuple{N, Int}[]
     for x in Iterators.product(ntuple(_ -> -n:n, Val{N}())...)
         if maximum(abs.(x)) == n
             push!(result, x)
         end
-    end
-    return result
-end
-
-function positive_orthant(::Val{N}, n::Int) where {N}
-    result = NTuple{N, Int}[]
-    for x in Iterators.product(ntuple(_ -> 0:n-1, Val{N}())...)
-        push!(result, x)
     end
     return result
 end
@@ -467,9 +461,65 @@ function has_root(p::Polynomial{N},
     return false
 end
 
-function has_root_modulo(p::Polynomial{N}, k::Int,
-                         trial_roots::Vector{NTuple{N, Int}}) where {N}
-    for x in trial_roots
+function has_small_root(p::Polynomial{2})
+    for x = -3 : 3
+        for y = -3 : 3
+            if p((x, y)) == 0
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function has_small_root(p::Polynomial{3})
+    for x = -3 : 3
+        for y = -3 : 3
+            for z = -3 : 3
+                if p((x, y, z)) == 0
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+function has_small_root(p::Polynomial{N}) where {N}
+    for x in Iterators.product(ntuple(_ -> -3 : 3, Val{N})...)
+        if p(x) == 0
+            return true
+        end
+    end
+    return false
+end
+
+function has_root_modulo(p::Polynomial{2}, k::Int)
+    for x = 0 : k - 1
+        for y = 0 : k - 1
+            if p((x, y)) % k == 0
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function has_root_modulo(p::Polynomial{3}, k::Int)
+    for x = 0 : k - 1
+        for y = 0 : k - 1
+            for z = 0 : k - 1
+                if p((x, y, z)) % k == 0
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+function has_root_modulo(p::Polynomial{N}, k::Int) where {N}
+    for x in Iterators.product(ntuple(_ -> 0 : k - 1, Val{N}())...)
         if p(x) % k == 0
             return true
         end
@@ -479,11 +529,6 @@ end
 
 function nontrivial_polynomials(::Val{N}, height::Int) where {N}
     result = Polynomial{N}[]
-    trial_roots = reduce(vcat, shell(Val{N}(), k) for k = 0 : 3)
-    trial_roots_2 = positive_orthant(Val{N}(), 2)
-    trial_roots_3 = positive_orthant(Val{N}(), 3)
-    trial_roots_4 = positive_orthant(Val{N}(), 4)
-    trial_roots_5 = positive_orthant(Val{N}(), 5)
     for partition in power_of_two_partitions(height)
         iterators = [
             HomogeneousPolynomialIterator{N}(weight, degree)
@@ -497,11 +542,11 @@ function nontrivial_polynomials(::Val{N}, height::Int) where {N}
                 !is_negative_semidefinite(p) &&
                 !is_elliptic_curve(p) &&
                 has_coprime_coefficients(p) &&
-                has_root_modulo(p, 2, trial_roots_2) &&
-                has_root_modulo(p, 3, trial_roots_3) &&
-                has_root_modulo(p, 4, trial_roots_4) &&
-                has_root_modulo(p, 5, trial_roots_5) &&
-                !has_root(p, trial_roots))
+                has_root_modulo(p, 2) &&
+                has_root_modulo(p, 3) &&
+                has_root_modulo(p, 4) &&
+                has_root_modulo(p, 5) &&
+                !has_small_root(p))
                 push!(result, p)
             end
             if !incr_polynomial!(iterators)
