@@ -180,30 +180,74 @@ end
 
 ################################################################################
 
-function all_polynomials(::Val{N}, height::Int, all_vars::Bool=true) where {N}
+function all_polynomials(::Val{N}, partition::Vector{Tuple{Int, Int}};
+                         all_vars::Bool=true, verbose::Bool=false) where {N}
+    t = Threads.threadid()
+    if verbose
+        println("Thread $t: working on partition $partition.")
+        flush(stdout)
+    end
+    last_print = time_ns()
+    iterators = [
+        HomogeneousPolynomialIterator{N}(weight, degree)
+        for (weight, degree) in partition
+    ]
     result = Polynomial{N}[]
-    for partition in power_of_two_partitions(height)
-        iterators = [
-            HomogeneousPolynomialIterator{N}(weight, degree)
-            for (weight, degree) in partition
-        ]
-        if all(length(it.monomials) > 0 for it in iterators)
-            while true
-                p = get_polynomial(iterators)
-                if all_vars
-                    if uses_all_variables(p)
-                        push!(result, p)
-                    end
-                else
-                    push!(result, p)
-                end
-                if !incr_polynomial!(iterators)
-                    break
+    if all(length(it.monomials) > 0 for it in iterators)
+        while true
+            p = get_polynomial(iterators)
+            if (!all_vars) || uses_all_variables(p)
+                push!(result, p)
+            end
+            if !incr_polynomial!(iterators)
+                break
+            end
+            if verbose
+                if time_ns() >= last_print + 1000000000
+                    n = length(result)
+                    println("Thread $t: found $n polynomials so far.")
+                    flush(stdout)
+                    last_print = time_ns()
                 end
             end
         end
     end
-    return result
+    if verbose
+        n = length(result)
+        println("Thread $t: found $n polynomials in total.")
+        flush(stdout)
+    end
+    return dedup(result; irreducible=false, verbose=verbose)
+end
+
+function all_polynomials(::Val{N}, height::Int;
+                         all_vars::Bool=true, verbose::Bool=false) where {N}
+    if verbose
+        println("Searching for all $N-variable polynomials of height $height.")
+        flush(stdout)
+    end
+    partitions = [
+        partition
+        for partition in power_of_two_partitions(height)
+        if sum([i * j for (i, j) in partition]) >= N
+    ]
+    n = length(partitions)
+    if verbose
+        println("Found $n binary partitions of $height.")
+        flush(stdout)
+    end
+    result = Vector{Vector{Polynomial{N}}}(undef, n)
+    tasks = Task[]
+    for i = 1 : n
+        task = Threads.@spawn @inbounds result[i] = all_polynomials(
+            Val{N}(), partitions[i]; all_vars=all_vars, verbose=verbose
+        )
+        push!(tasks, task)
+    end
+    for task in tasks
+        wait(task)
+    end
+    return reduce(vcat, result)
 end
 
 ################################################################################
@@ -352,11 +396,22 @@ function apply_signflip!(p::Polynomial{N}) where {N}
     return p
 end
 
-function dedup(polys::Vector{Polynomial{N}}, irreducible::Bool=true) where {N}
+function dedup(polys::Vector{Polynomial{N}};
+               irreducible::Bool=true, verbose::Bool=false) where {N}
+    t = Threads.threadid()
+    if verbose
+        println("Thread $t: deduplicating $(length(polys)) polynomials.")
+        flush(stdout)
+    end
     index_dict = Dict{Polynomial{N}, Int}()
     for (i, p) in enumerate(polys)
         index_dict[sort(p)] = i
     end
+    if verbose
+        println("Thread $t: constructing symmetry map.")
+        flush(stdout)
+    end
+    last_print = time_ns()
     g = SimpleGraph(index_dict.count)
     for (i, p_original) in enumerate(polys)
         p = copy(p_original)
@@ -367,6 +422,17 @@ function dedup(polys::Vector{Polynomial{N}}, irreducible::Bool=true) where {N}
         add_edge!(g, i, index_dict[sort!(apply_signflip!(p))])
         apply_signflip!(p)
         add_edge!(g, i, index_dict[sort!(apply_cycle!(p))])
+        if verbose
+            if time_ns() >= last_print + 1000000000
+                println("Thread $t: computed symmetries of $i polynomials.")
+                flush(stdout)
+                last_print = time_ns()
+            end
+        end
+    end
+    if verbose
+        println("Thread $t: finding connected components of symmetry graph.")
+        flush(stdout)
     end
     result = Polynomial{N}[]
     if irreducible
