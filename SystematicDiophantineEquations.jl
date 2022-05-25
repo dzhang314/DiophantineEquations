@@ -352,7 +352,7 @@ function apply_signflip!(p::Polynomial{N}) where {N}
     return p
 end
 
-function dedup(polys::Vector{Polynomial{N}}, factor::Bool=true) where {N}
+function dedup(polys::Vector{Polynomial{N}}, irreducible::Bool=true) where {N}
     index_dict = Dict{Polynomial{N}, Int}()
     for (i, p) in enumerate(polys)
         index_dict[sort(p)] = i
@@ -369,7 +369,7 @@ function dedup(polys::Vector{Polynomial{N}}, factor::Bool=true) where {N}
         add_edge!(g, i, index_dict[sort!(apply_cycle!(p))])
     end
     result = Polynomial{N}[]
-    if factor
+    if irreducible
         _, vars = PolynomialRing(ZZ, canonical_variables(N))
         x = ntuple(i -> (@inbounds vars[i]), Val{N}())
         for comp in connected_components(g)
@@ -499,9 +499,9 @@ function has_root(p::Polynomial{N},
     return false
 end
 
-function has_small_root(p::Polynomial{2})
-    for x = -3 : 3
-        for y = -3 : 3
+function has_small_root(p::Polynomial{2}, bound::Int=3)
+    for x = bound : -1 : -bound
+        for y = bound : -1 : -bound
             if p((x, y)) == 0
                 return true
             end
@@ -510,10 +510,10 @@ function has_small_root(p::Polynomial{2})
     return false
 end
 
-function has_small_root(p::Polynomial{3})
-    for x = -3 : 3
-        for y = -3 : 3
-            for z = -3 : 3
+function has_small_root(p::Polynomial{3}, bound::Int=3)
+    for x = bound : -1 : -bound
+        for y = bound : -1 : -bound
+            for z = bound : -1 : -bound
                 if p((x, y, z)) == 0
                     return true
                 end
@@ -523,13 +523,46 @@ function has_small_root(p::Polynomial{3})
     return false
 end
 
-function has_small_root(p::Polynomial{N}) where {N}
-    for x in Iterators.product(ntuple(_ -> -3 : 3, Val{N})...)
+function has_small_root(p::Polynomial{N}, bound::Int=3) where {N}
+    for x in Iterators.product(ntuple(_ -> bound : -1 : -bound, Val{N})...)
         if p(x) == 0
             return true
         end
     end
     return false
+end
+
+function find_small_root(p::Polynomial{2}, bound::Int=3)
+    for x = bound : -1 : -bound
+        for y = bound : -1 : -bound
+            if p((x, y)) == 0
+                return (x, y)
+            end
+        end
+    end
+    return nothing
+end
+
+function find_small_root(p::Polynomial{3}, bound::Int=3)
+    for x = bound : -1 : -bound
+        for y = bound : -1 : -bound
+            for z = bound : -1 : -bound
+                if p((x, y, z)) == 0
+                    return (x, y, z)
+                end
+            end
+        end
+    end
+    return nothing
+end
+
+function find_small_root(p::Polynomial{N}, bound::Int=3) where {N}
+    for x in Iterators.product(ntuple(_ -> bound : -1 : -bound, Val{N}())...)
+        if p(x) == 0
+            return x
+        end
+    end
+    return nothing
 end
 
 function has_root_modulo(p::Polynomial{2}, k::Int)
