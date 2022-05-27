@@ -111,7 +111,8 @@ function dedup(polys::Vector{Polynomial{T, N, I}}, ::Type{I}) where {T, N, I}
     return result
 end
 
-function all_polynomials(::Val{N}, partition::Vector{Pair{I, T}}) where {T, N, I}
+function all_polynomials(::Val{N},
+                         partition::Vector{Pair{I, T}}) where {T, N, I}
     last_print = time_ns()
     result = Polynomial{T, N, I}[]
     iterators = [
@@ -142,23 +143,25 @@ end
 using Printf
 using Serialization
 
-function inner(::Val{N}, height::T, partition::Vector{Pair{I, T}}, i::Int, n::Int) where {T, N, I}
-    filename = @sprintf("/home/dkzhang/DiophantineEquations/All-%02d-%02d-%04d.jls", height, N, i)
-    if !isfile(filename)
-        println("Working on partition $partition ($i out of $n).")
-        flush(stdout)
-        touch(filename)
-        polys = all_polynomials(Val{N}(), partition)
-        rm(filename)
-        serialize(filename, polys)
-    end
+function inner(::Val{N}, height::T, partition::Vector{Pair{I, T}},
+               i::Int, n::Int) where {T, N, I}
+    filename = @sprintf("All-%02d-%02d-%04d.jls", height, N, i)
+    @assert !isfile(filename)
+    println("Working on partition $partition ($i out of $n).")
+    flush(stdout)
+    touch(filename)
+    polys = all_polynomials(Val{N}(), partition)
+    rm(filename)
+    serialize(filename, polys)
+    return filename
 end
 
 function main()
     for height = 0 : 99
         for N = 0 : div(height, 2)
-            lockname = @sprintf("/home/dkzhang/DiophantineEquations/All-%02d-%02d.lock", height, N)
-            donename = @sprintf("/home/dkzhang/DiophantineEquations/All-%02d-%02d.done", height, N)
+            dataname = @sprintf("All-%02d-%02d.jls", height, N)
+            lockname = @sprintf("All-%02d-%02d.lock", height, N)
+            donename = @sprintf("All-%02d-%02d.done", height, N)
             if !isfile(lockname) && !isfile(donename)
                 touch(lockname)
                 println("Searching for all $N-variable polynomials of height $height.")
@@ -171,9 +174,12 @@ function main()
                 n = length(partitions)
                 println("Found $n binary partitions of $height.")
                 flush(stdout)
+                filenames = String[]
                 for (i, partition) in enumerate(partitions)
-                    inner(Val{N}(), Int8(height), partition, i, n)
+                    push!(filenames, inner(Val{N}(), Int8(height), partition, i, n))
                 end
+                serialize(dataname, reduce(vcat, deserialize.(filenames)))
+                rm.(filenames)
                 mv(lockname, donename)
             end
         end
