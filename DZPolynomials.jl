@@ -1,16 +1,51 @@
 module DZPolynomials
 
-export Monomial, Polynomial, uses_variable, uses_all_variables,
+export Monomial, Polynomial, find_root, has_root_modulo,
+    uses_variable, uses_all_variables,
+    is_positive_semidefinite, is_negative_semidefinite, to_string,
     apply_transposition, apply_cycle, apply_negation, apply_signflip,
     apply_transposition!, apply_cycle!, apply_negation!, apply_signflip!,
     incr_partition!, integer_partitions, binary_partitions,
-    HomogeneousPolynomialIterator, get_polynomial, incr_polynomial!
+    HomogeneousPolynomialIterator, get_polynomial, incr_polynomial!,
+    l1_ball
 
 ################################################################################
 
 const Monomial{T, N, I} = Pair{NTuple{N, I}, T}
 
 const Polynomial{T, N, I} = Vector{Monomial{T, N, I}}
+
+function (p::Polynomial{T, N, I})(x::NTuple{N, X}) where {T, N, I, X}
+    result = zero(X)
+    for (m, c) in p
+        result += *(X(c), Base.power_by_squaring.(x, m)...)
+    end
+    return result
+end
+
+function (p::Polynomial{T, N, I})(x::Vararg{X, N}) where {T, N, I, X}
+    return p(x)
+end
+
+function find_root(p::Polynomial{T, N, I},
+                   xs::Vector{NTuple{N, X}}) where {T, N, I, X}
+    for x in xs
+        if iszero(p(x))
+            return x
+        end
+    end
+    return nothing
+end
+
+function has_root_modulo(p::Polynomial{T, N, I}, k::K) where {T, N, I, K}
+    range = zero(K) : (k - one(K))
+    for x in Iterators.product(ntuple(_ -> range, Val{N}())...)
+        if iszero(p(x) % k)
+            return true
+        end
+    end
+    return false
+end
 
 function uses_variable(p::Polynomial{T, N, I}, i::Int) where {T, N, I}
     @inbounds for (m, c) in p
@@ -28,6 +63,130 @@ function uses_all_variables(p::Polynomial{T, N, I}) where {T, N, I}
         end
     end
     return true
+end
+
+function is_positive_semidefinite(p::Polynomial{T, N, I}) where {T, N, I}
+    _zero = zero(T)
+    for (m, c) in p
+        if c < _zero || !all(iseven, m)
+            return false
+        end
+    end
+    return true
+end
+
+function is_negative_semidefinite(p::Polynomial{T, N, I}) where {T, N, I}
+    _zero = zero(T)
+    for (m, c) in p
+        if c > _zero || !all(iseven, m)
+            return false
+        end
+    end
+    return true
+end
+
+################################################################################
+
+const CANONICAL_VARIABLES = Dict(
+    0 => [],
+    1 => ["x"],
+    2 => ["x", "y"],
+    3 => ["x", "y", "z"],
+    4 => ["a", "b", "c", "d"],
+    5 => ["a", "b", "c", "d", "e"],
+    6 => ["a", "b", "c", "d", "e", "f"],
+    7 => ["a", "b", "c", "d", "e", "f", "g"],
+    8 => ["a", "b", "c", "d", "e", "f", "g", "h"],
+    9 => ["a", "b", "c", "d", "e", "f", "g", "h", "i"],
+    10 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"],
+    11 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"],
+    12 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"],
+    13 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m"],
+    14 => ["a", "b", "c", "d", "e", "f", "g",
+           "h", "i", "j", "k", "l", "m", "n"],
+    15 => ["a", "b", "c", "d", "e", "f", "g", "h",
+           "i", "j", "k", "l", "m", "n", "o"],
+    16 => ["a", "b", "c", "d", "e", "f", "g", "h",
+           "i", "j", "k", "l", "m", "n", "o", "p"],
+    17 => ["a", "b", "c", "d", "e", "f", "g", "h", "i",
+           "j", "k", "l", "m", "n", "o", "p", "q"],
+    18 => ["a", "b", "c", "d", "e", "f", "g", "h", "i",
+           "j", "k", "l", "m", "n", "o", "p", "q", "r"],
+    19 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
+           "k", "l", "m", "n", "o", "p", "q", "r", "s"],
+    20 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
+           "k", "l", "m", "n", "o", "p", "q", "r", "s", "t"],
+    21 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k",
+           "l", "m", "n", "o", "p", "q", "r", "s", "t", "u"],
+    22 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k",
+           "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v"],
+    23 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l",
+           "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w"],
+    24 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l",
+           "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x"],
+    25 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+           "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y"],
+    26 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+           "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
+)
+
+function to_string((m, c)::Monomial{T, N, I}) where {T, N, I}
+    if all(iszero(n) for n in m)
+        return string(c)
+    end
+    vars = CANONICAL_VARIABLES[N]
+    result = String[]
+    needs_star = false
+    if isone(c)
+        # do nothing
+    elseif isone(-c)
+        push!(result, "-")
+    else
+        push!(result, string(c))
+        needs_star = true
+    end
+    for (i, n) in enumerate(m)
+        if isone(n)
+            if needs_star
+                push!(result, "*")
+            end
+            push!(result, vars[i])
+            needs_star = true
+        elseif !iszero(n)
+            if needs_star
+                push!(result, "*")
+            end
+            push!(result, vars[i])
+            push!(result, "^")
+            push!(result, string(n))
+            needs_star = true
+        end
+    end
+    return join(result)
+end
+
+function to_string(p::Polynomial{T, N, I}) where {T, N, I}
+    result = String[]
+    for (m, c) in p
+        if !iszero(c)
+            if isempty(result)
+                push!(result, to_string(m => c))
+            else
+                if signbit(c)
+                    push!(result, " - ")
+                    push!(result, to_string(m => -c))
+                else
+                    push!(result, " + ")
+                    push!(result, to_string(m => c))
+                end
+            end
+        end
+    end
+    if isempty(result)
+        return string(zero(T))
+    else
+        return join(result)
+    end
 end
 
 ################################################################################
@@ -53,7 +212,7 @@ end
 
 function apply_signflip(m::Monomial{T, N, I}) where {T, N, I}
     ((i, j...), c) = m
-    return (i, j...) => ifelse(iszero(i & one(I)), c, -c)
+    return (i, j...) => ifelse(iseven(i), c, -c)
 end
 
 ################################################################################
@@ -205,7 +364,7 @@ struct HomogeneousPolynomialIterator{T, N, I}
         monomials = NTuple{N, I}.(integer_partitions(degree, N))
         dense_partition = zeros(T, length(monomials))
         if length(dense_partition) > 0
-            dense_partition[1] = weight
+            @inbounds dense_partition[1] = weight
             sparse_partition = [1 => weight]
         else
             sparse_partition = Pair{Int, T}[]
@@ -240,7 +399,7 @@ function append_polynomial!(poly::Polynomial{T, N, I},
     s = it.sign_pattern[]
     m = it.monomials
     @inbounds for (i, c) in it.sparse_partition
-        push!(poly, m[i] => ifelse(iszero(s & 1), c, -c))
+        push!(poly, m[i] => ifelse(iseven(s), c, -c))
         s >>= 1
     end
     return poly
@@ -289,6 +448,70 @@ function incr_polynomial!(iterators::Vector{HPI{T, N, I}}) where {T, N, I}
         reset!(iterators[i])
         i -= 1
     end
+end
+
+################################################################################
+
+struct SignedPartitionIterator
+    dense_partition::Vector{Int}
+    sparse_partition::Vector{Pair{Int, Int}}
+    sign_pattern::Array{UInt, 0}
+    function SignedPartitionIterator(n::Int, len::Int)
+        dense_partition = zeros(Int, len)
+        if len > 0
+            @inbounds dense_partition[1] = n
+            sparse_partition = [1 => n]
+        else
+            sparse_partition = Pair{Int, Int}[]
+        end
+        sign_pattern = fill(UInt(0))
+        return new(dense_partition, sparse_partition, sign_pattern)
+    end
+end
+
+function incr_partition!(it::SignedPartitionIterator)
+    dense = it.dense_partition
+    sparse = it.sparse_partition
+    s = it.sign_pattern[] + 1
+    if s < (UInt(1) << length(sparse))
+        it.sign_pattern[] = s
+        return true
+    else
+        it.sign_pattern[] = UInt(0)
+        if !incr_partition!(dense)
+            return false
+        end
+        empty!(sparse)
+        for (i, c) in enumerate(dense)
+            if !iszero(c)
+                push!(sparse, i => c)
+            end
+        end
+        @assert length(sparse) < 8 * sizeof(UInt)
+        return true
+    end
+end
+
+function get_partition(::Val{N}, it::SignedPartitionIterator) where {N}
+    result = ntuple(_ -> 0, Val{N}())
+    s = it.sign_pattern[]
+    @inbounds for (i, c) in it.sparse_partition
+        result = Base.setindex(result, ifelse(iseven(s), c, -c), i)
+        s >>= 1
+    end
+    return result
+end
+
+function l1_ball(::Val{N}, radius::Int) where {N}
+    result = NTuple{N, Int}[]
+    it = SignedPartitionIterator(radius, N)
+    while true
+        push!(result, get_partition(Val{N}(), it))
+        if !incr_partition!(it)
+            break
+        end
+    end
+    return result
 end
 
 ################################################################################
