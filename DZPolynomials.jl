@@ -1,8 +1,9 @@
 module DZPolynomials
 
 export Monomial, Polynomial, find_root, has_root_modulo,
-    uses_variable, uses_all_variables,
-    is_positive_semidefinite, is_negative_semidefinite, to_string, to_latex,
+    uses_variable, uses_all_variables, has_divisible_variable,
+    is_positive_semidefinite, is_negative_semidefinite, is_elliptic_curve,
+    to_string, to_latex,
     apply_transposition, apply_cycle, apply_negation, apply_signflip,
     apply_transposition!, apply_cycle!, apply_negation!, apply_signflip!,
     incr_partition!, integer_partitions, binary_partitions,
@@ -65,6 +66,24 @@ function uses_all_variables(p::Polynomial{T, N, I}) where {T, N, I}
     return true
 end
 
+function has_divisible_variable(p::Polynomial{T, N, I}, i::Int) where {T, N, I}
+    @inbounds for (m, c) in p
+        if !all(iszero.(m)) && iszero(m[i])
+            return false
+        end
+    end
+    return true
+end
+
+function has_divisible_variable(p::Polynomial{T, N, I}) where {T, N, I}
+    for i = 1 : N
+        if has_divisible_variable(p, i)
+            return true
+        end
+    end
+    return false
+end
+
 function is_positive_semidefinite(p::Polynomial{T, N, I}) where {T, N, I}
     _zero = zero(T)
     for (m, c) in p
@@ -84,6 +103,31 @@ function is_negative_semidefinite(p::Polynomial{T, N, I}) where {T, N, I}
     end
     return true
 end
+
+function is_elliptic_curve(p::Polynomial{T, 2, I}) where {T, I}
+    _zero = zero(I)
+    _one = one(I)
+    _two = _one + _one
+    _three = _two + _one
+    found_cubic = false
+    found_quadratic = false
+    for ((i, j), c) in p
+        if (i, j) == (_three, _zero)
+            if !iszero(c)
+                found_cubic = true
+            end
+        elseif (i, j) == (_zero, _two)
+            if !iszero(c)
+                found_quadratic = true
+            end
+        elseif i + j > _two
+            return false
+        end
+    end
+    return found_cubic && found_quadratic
+end
+
+is_elliptic_curve(p::Polynomial{T, N, I}) where {T, N, I} = false
 
 ################################################################################
 
@@ -207,9 +251,14 @@ function to_latex((m, c)::Monomial{T, N, I}) where {T, N, I}
             push!(result, vars[i])
         elseif !iszero(n)
             push!(result, vars[i])
-            push!(result, "^{")
-            push!(result, string(n))
-            push!(result, "}")
+            push!(result, "^")
+            if 0 <= n <= 9
+                push!(result, string(n))
+            else
+                push!(result, "{")
+                push!(result, string(n))
+                push!(result, "}")
+            end
         end
     end
     return join(result)
