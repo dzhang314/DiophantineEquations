@@ -460,7 +460,11 @@ struct HomogeneousPolynomialIterator{T, N, I}
     function HomogeneousPolynomialIterator{T, N, I}(
         weight::T, degree::I
     ) where {T, N, I}
-        monomials = NTuple{N, I}.(integer_partitions(degree, N))
+        powers = integer_partitions(degree, N)
+        for p in powers
+            reverse!(p)
+        end
+        monomials = NTuple{N, I}.(reverse!(powers))
         dense_partition = zeros(T, length(monomials))
         if length(dense_partition) > 0
             @inbounds dense_partition[1] = weight
@@ -497,9 +501,10 @@ function append_polynomial!(poly::Polynomial{T, N, I},
                             it::HPI{T, N, I}) where {T, N, I}
     s = it.sign_pattern[]
     m = it.monomials
+    j = length(it.sparse_partition)
     @inbounds for (i, c) in it.sparse_partition
-        push!(poly, m[i] => ifelse(iseven(s), c, -c))
-        s >>= 1
+        j -= 1
+        push!(poly, m[i] => ifelse(iseven(s >> j), c, -c))
     end
     return poly
 end
