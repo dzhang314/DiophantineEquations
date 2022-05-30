@@ -1,7 +1,8 @@
 module DZPolynomials
 
 export Monomial, Polynomial, find_root, has_root_modulo,
-    uses_variable, uses_all_variables, has_divisible_variable,
+    uses_variable, uses_all_variables,
+    has_linear_variable, has_divisible_variable, has_coprime_coefficients,
     is_positive_semidefinite, is_negative_semidefinite, is_elliptic_curve,
     to_string, to_latex,
     apply_transposition, apply_cycle, apply_negation, apply_signflip,
@@ -66,6 +67,25 @@ function uses_all_variables(p::Polynomial{T, N, I}) where {T, N, I}
     return true
 end
 
+function has_linear_variable(p::Polynomial{T, N, I}, i::Int) where {T, N, I}
+    @inbounds (n, _) = p[i]
+    @inbounds for (j, (m, _)) in enumerate(p)
+        if i != j && !all(iszero.(min.(m, n)))
+            return false
+        end
+    end
+    return true
+end
+
+function has_linear_variable(p::Polynomial{T, N, I}) where {T, N, I}
+    @inbounds for (i, (m, _)) in enumerate(p)
+        if any(isone.(m)) && has_linear_variable(p, i)
+            return true
+        end
+    end
+    return false
+end
+
 function has_divisible_variable(p::Polynomial{T, N, I}, i::Int) where {T, N, I}
     @inbounds for (m, c) in p
         if !all(iszero.(m)) && iszero(m[i])
@@ -78,6 +98,17 @@ end
 function has_divisible_variable(p::Polynomial{T, N, I}) where {T, N, I}
     for i = 1 : N
         if has_divisible_variable(p, i)
+            return true
+        end
+    end
+    return false
+end
+
+function has_coprime_coefficients(p::Polynomial{T, N, I}) where {T, N, I}
+    result = zero(T)
+    for (_, c) in p
+        result = gcd(result, c)
+        if isone(result)
             return true
         end
     end
@@ -104,7 +135,7 @@ function is_negative_semidefinite(p::Polynomial{T, N, I}) where {T, N, I}
     return true
 end
 
-function is_elliptic_curve(p::Polynomial{T, 2, I}) where {T, I}
+function is_elliptic_curve_1(p::Polynomial{T, 2, I}) where {T, I}
     _zero = zero(I)
     _one = one(I)
     _two = _one + _one
@@ -127,6 +158,31 @@ function is_elliptic_curve(p::Polynomial{T, 2, I}) where {T, I}
     return found_cubic && found_quadratic
 end
 
+function is_elliptic_curve_2(p::Polynomial{T, 2, I}) where {T, I}
+    _zero = zero(I)
+    _one = one(I)
+    _two = _one + _one
+    _three = _two + _one
+    found_cubic = false
+    found_quadratic = false
+    for ((i, j), c) in p
+        if (i, j) == (_zero, _three)
+            if !iszero(c)
+                found_cubic = true
+            end
+        elseif (i, j) == (_two, _zero)
+            if !iszero(c)
+                found_quadratic = true
+            end
+        elseif i + j > _two
+            return false
+        end
+    end
+    return found_cubic && found_quadratic
+end
+
+is_elliptic_curve(p::Polynomial{T, 2, I}) where {T, I} =
+    is_elliptic_curve_1(p) || is_elliptic_curve_2(p)
 is_elliptic_curve(p::Polynomial{T, N, I}) where {T, N, I} = false
 
 ################################################################################
