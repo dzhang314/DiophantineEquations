@@ -2,7 +2,7 @@ module DZPolynomials
 
 export Monomial, Polynomial, find_root, has_root_modulo,
     uses_variable, uses_all_variables,
-    is_positive_semidefinite, is_negative_semidefinite, to_string,
+    is_positive_semidefinite, is_negative_semidefinite, to_string, to_latex,
     apply_transposition, apply_cycle, apply_negation, apply_signflip,
     apply_transposition!, apply_cycle!, apply_negation!, apply_signflip!,
     incr_partition!, integer_partitions, binary_partitions,
@@ -186,6 +186,56 @@ function to_string(p::Polynomial{T, N, I}) where {T, N, I}
         return string(zero(T))
     else
         return join(result)
+    end
+end
+
+function to_latex((m, c)::Monomial{T, N, I}) where {T, N, I}
+    if all(iszero(n) for n in m)
+        return string(c)
+    end
+    vars = CANONICAL_VARIABLES[N]
+    result = String[]
+    if isone(c)
+        # do nothing
+    elseif isone(-c)
+        push!(result, "-")
+    else
+        push!(result, string(c))
+    end
+    for (i, n) in enumerate(m)
+        if isone(n)
+            push!(result, vars[i])
+        elseif !iszero(n)
+            push!(result, vars[i])
+            push!(result, "^{")
+            push!(result, string(n))
+            push!(result, "}")
+        end
+    end
+    return join(result)
+end
+
+function to_latex(p::Polynomial{T, N, I}) where {T, N, I}
+    result = String[]
+    for (m, c) in p
+        if !iszero(c)
+            if isempty(result)
+                push!(result, to_latex(m => c))
+            else
+                if signbit(c)
+                    push!(result, " - ")
+                    push!(result, to_latex(m => -c))
+                else
+                    push!(result, " + ")
+                    push!(result, to_latex(m => c))
+                end
+            end
+        end
+    end
+    if isempty(result)
+        return "\$0\$"
+    else
+        return '$' * join(result) * '$'
     end
 end
 
