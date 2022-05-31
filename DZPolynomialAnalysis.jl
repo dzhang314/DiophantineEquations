@@ -1,4 +1,4 @@
-module PolynomialAnalysis
+module DZPolynomialAnalysis
 
 export dedup, to_wolfram, has_real_root, is_positive_definite
 
@@ -76,4 +76,4 @@ end
 
 ################################################################################
 
-end # module PolynomialAnalysis
+end # module DZPolynomialAnalysis

@@ -1,4 +1,4 @@
-module PolynomialSearch
+module DZPolynomialSearch
 
 export dedup, find_polynomials
 
@@ -141,4 +141,4 @@ end
 
 ################################################################################
 
-end # module PolynomialSearch
+end # module DZPolynomialSearch
