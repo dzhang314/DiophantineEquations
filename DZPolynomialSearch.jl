@@ -1,6 +1,6 @@
 module DZPolynomialSearch
 
-export dedup, find_polynomials
+export dedup, find_polynomials, all_polynomials
 
 using DZPolynomials
 using Graphs
@@ -137,6 +137,22 @@ function find_polynomials(::Val{N}, h::Int, pre_predicate, post_predicate,
         end
     end
     return result
+end
+
+################################################################################
+
+function all_polynomials(::Val{N}, partition::Vector{Pair{I, T}},
+                         verbose::Bool=false) where {T, N, I}
+    return find_polynomials(
+        Val{N}(), partition, uses_all_variables, _ -> true, verbose
+    )
+end
+
+function all_polynomials(::Val{N}, h::Int, verbose::Bool=false) where {N}
+    return find_polynomials(
+        Val{N}(), h, uses_all_variables, _ -> true,
+        p -> sum([i * j for (i, j) in p]) >= N, verbose
+    )
 end
 
 ################################################################################
