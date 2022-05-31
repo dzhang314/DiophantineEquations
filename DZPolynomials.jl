@@ -518,7 +518,7 @@ struct HomogeneousPolynomialIterator{T, N, I}
     ) where {T, N, I}
         powers = integer_partitions(degree, N)
         for p in powers
-            reverse!(p)
+            reverse!(p) # degrevlex order
         end
         monomials = NTuple{N, I}.(reverse!(powers))
         dense_partition = zeros(T, length(monomials))
