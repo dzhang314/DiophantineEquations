@@ -1,6 +1,7 @@
 module DZPolynomialAnalysis
 
-export dedup, to_wolfram, has_real_root, is_positive_definite
+export to_wolfram, has_real_root, is_positive_definite,
+    has_unbounded_projection
 
 using DZPolynomials
 using MathLink
@@ -72,6 +73,32 @@ function is_positive_definite(p::Polynomial{T, N, I}) where {T, N, I}
     else
         error()
     end
+end
+
+function has_unbounded_projection(p::Polynomial{T, N, I},
+                                  i::Int) where {T, N, I}
+    vars = WOLFRAM_VARIABLES[N]
+    stmt = W"ForAll"(W"T", W"Exists"(vars, W"And"(
+        W"Equal"(to_wolfram(p), 0),
+        W"Greater"(W"Power"(vars[i], 2), W"T")
+    )))
+    result = weval(W"Resolve"(stmt, W"Reals"))
+    if result == W"True"
+        return true
+    elseif result == W"False"
+        return false
+    else
+        error()
+    end
+end
+
+function has_unbounded_projection(p::Polynomial{T, N, I}) where {T, N, I}
+    for i = 1 : N
+        if !has_unbounded_projection(p, i)
+            return false
+        end
+    end
+    return true
 end
 
 ################################################################################
