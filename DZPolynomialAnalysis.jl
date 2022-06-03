@@ -1,7 +1,7 @@
 module DZPolynomialAnalysis
 
 export to_wolfram, has_real_root, is_positive_definite,
-    has_unbounded_projection
+    has_unbounded_projection, integer_projection
 
 using DZPolynomials
 using MathLink
@@ -99,6 +99,33 @@ function has_unbounded_projection(p::Polynomial{T, N, I}) where {T, N, I}
         end
     end
     return true
+end
+
+function integer_projection(p::Polynomial{T, N, I}, i::Int) where {T, N, I}
+    vars = WOLFRAM_VARIABLES[N]
+    result = weval(W"Reduce"(
+        W"Resolve"(
+            W"Exists"(deleteat!(copy(vars), i), W"Equal"(to_wolfram(p), 0)),
+            W"Reals"
+        ),
+        vars[i],
+        W"Integers"
+    ))
+    if result == W"False"
+        return Int[]
+    elseif (result.head == W"Equal" &&
+            length(result.args) == 2 &&
+            result.args[1] == vars[i])
+        return Int[result.args[2]]
+    elseif result.head == W"Or"
+        @assert all(term.head == W"Equal" &&
+                    length(term.args) == 2 &&
+                    term.args[1] == vars[i]
+                    for term in result.args)
+        return Int[term.args[2] for term in result.args]
+    else
+        error()
+    end
 end
 
 ################################################################################
