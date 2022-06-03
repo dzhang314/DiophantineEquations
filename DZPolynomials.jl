@@ -618,7 +618,7 @@ struct SignedPartitionIterator
     sign_pattern::Array{UInt, 0}
     function SignedPartitionIterator(n::Int, len::Int)
         dense_partition = zeros(Int, len)
-        if len > 0
+        if n > 0 && len > 0
             @inbounds dense_partition[1] = n
             sparse_partition = [1 => n]
         else
