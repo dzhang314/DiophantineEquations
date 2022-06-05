@@ -211,7 +211,7 @@ function is_weierstrass_elliptic_curve(p::Polynomial{T, 2, I}) where {T, I}
             end
             found_cubic = true
         elseif (i, j) == (_zero, _two)
-            if !isone(c)
+            if !isone(c) && !isone(-c)
                 return false
             end
             found_quadratic = true
@@ -228,13 +228,26 @@ function weierstrass_coefficients(p::Polynomial{T, 2, I}) where {T, I}
     _zero = zero(I)
     _one = one(I)
     _two = _one + _one
-    return [
-        -coefficient_of(p, (_one, _one)),
-        -coefficient_of(p, (_two, _zero)),
-        coefficient_of(p, (_zero, _one)),
-        coefficient_of(p, (_one, _zero)),
-        -coefficient_of(p, (_zero, _zero))
-    ]
+    c = coefficient_of(p, (_zero, _two))
+    if isone(c)
+        return (
+            -coefficient_of(p, (_one, _one)),
+            -coefficient_of(p, (_two, _zero)),
+            coefficient_of(p, (_zero, _one)),
+            coefficient_of(p, (_one, _zero)),
+            -coefficient_of(p, (_zero, _zero))
+        )
+    elseif isone(-c)
+        return (
+            -coefficient_of(p, (_one, _one)),
+            coefficient_of(p, (_two, _zero)),
+            -coefficient_of(p, (_zero, _one)),
+            coefficient_of(p, (_one, _zero)),
+            coefficient_of(p, (_zero, _zero))
+        )
+    else
+        error()
+    end
 end
 
 ################################################################################
