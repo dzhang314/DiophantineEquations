@@ -1,45 +1,3 @@
-\documentclass[11pt]{article}
-
-\title{Notes on Diophantine Equations}
-\author{David K. Zhang}
-\date{Last modified \today}
-
-\usepackage{amsmath}
-\usepackage{amssymb}
-\usepackage[margin=1.25in]{geometry}
-\usepackage{parskip}
-
-\newcommand{\Z}{{\mathbb{Z}}}
-\newcommand{\R}{{\mathbb{R}}}
-\newcommand{\dfntxt}[1]{{\textbf{\textit{#1}}}}
-
-\begin{document}
-\maketitle
-
-A \dfntxt{Diophantine equation} is a polynomial equation with integer coefficients, in any number of variables, for which we seek integer solutions. For example, the Diophantine equation
-\[ x^2 + y^2 = z^2 \qquad\qquad x, y, z \in \Z \]
-defines the set of Pythagorean triples $(x, y, z) \in \Z^3$. Every Diophantine equation can be written in the form
-\[ P(x_1, \dots, x_n) = 0 \qquad\qquad x_1, \dots, x_n \in \Z \]
-for some polynomial $P \in \Z[x_1, \dots, x_n]$. For example, the preceding Diophantine equation can be represented by the polynomial $P(x, y, z) = x^2 + y^2 - z^2$. In this article, we will freely identify Diophantine equations and polynomials with integer coefficients.
-
-\begin{itemize}
-	\item Any Diophantine equation of the form
-	\[ x_1 + Q(x_2, \dots, x_n) = 0 \]
-	can be trivially solved by assigning arbitrary integer values to $x_2, \dots, x_n$ and taking $x_1 = -Q(x_2, \dots, x_n)$.
-
-	More generally, we say that a variable $x_1$ \dfntxt{occurs linearly} in a polynomial $P \in \Z[x_1, \dots, x_n]$ if $P$ can be written in the form
-	\[ P(x_1, \dots, x_n) = a x_1 x_2^{j_2} \cdots x_k^{j_k} + Q(x_{k+1}, \dots, x_n) \]
-	for some polynomial $Q \in \Z[x_{k+1}, \dots, x_n]$. The corresponding Diophantine equation
-	\[ a x_1 x_2^{j_2} \cdots x_k^{j_k} + Q(x_{k+1}, \dots, x_n) = 0 \]
-	can be solved by assigning $x_2 = \dots = x_k = 1$ and checking whether it is possible for $Q(x_{k+1}, \dots, x_n)$ to be a multiple of $a$, which can be tested in finite time by computing $Q(x_{k+1}, \dots, x_n)$ modulo $a$ for all values of $x_{k+1}, \dots, x_n \in \{0, \dots, a - 1\}$. This observation allows us to exclude all Diophantine equations that contain a linear variable.
-
-	\item If a polynomial $P \in \Z[x_1, \dots, x_n]$ has no roots in $\R^n$, then it obviously cannot have any roots in $\Z^n$. This condition can be checked in finite time\footnote{The computational complexity of the cylindrical algebraic decomposition algorithm is doubly-exponential in the number of variables in the polynomial under consideration.} using the algorithms of real algebraic geometry, such as cylindrical algebraic decomposition.
-
-	More generally, if the set of roots of $P$ in $\R^n$ is bounded, then there are only finitely many points of $\Z^n$ that we need to check in order to determine whether $P$ has an integer-valued root. The boundedness of this set can be checked by performing quantifier elimination on the following formula:
-	\[ \forall t \in \R\ \exists x_1, \dots, x_n \in \R: P(x_1, \dots, x_n) = 0 \wedge x_1^2 + \dots + x_n^2 \ge t \]
-	This observation allows us to exclude all Diophantine equations whose set of real-valued solutions is empty or bounded.
-\end{itemize}
-
 \textbf{Lemma:} Let $n \in \Z$. If $p$ is an odd prime factor of $n^2 + 1$, then $p \equiv 1 \pmod 4$.
 
 \textit{Proof:} Let $p$ be an odd prime. If $p \mid (n^2 + 1)$, then $n^2 \equiv -1 \pmod p$, which shows that $-1$ is a quadratic residue modulo $p$. Using the properties of the Legendre symbol, it follows that
@@ -63,5 +21,3 @@ Thus, the two factors on the left-hand side must be congruent to $(1, 1)$, $(3, 
 has no integer-valued solutions.
 
 \textit{Proof:} Substitute $y \mapsto -y$ to obtain the equation $y(x^2 + 3) = z^2 + 1$. Working modulo 4, the right-hand side is either 1 or 2, while $x^2 + 3$ is either 0 or 3. Observe that $x^2 + 3 \equiv 0$ is impossible because it would force the right-hand side to be 0, and $x^2 + 3 \equiv 3$ is impossible by the preceding lemma. \textbf{QED}
-
-\end{document}
