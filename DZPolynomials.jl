@@ -677,12 +677,12 @@ end
 
 ################################################################################
 
-struct SignedPartitionIterator
-    dense_partition::Vector{Int}
-    sparse_partition::Vector{Pair{Int, Int}}
+struct SignedPartitionIterator{T}
+    dense_partition::Vector{T}
+    sparse_partition::Vector{Pair{Int, T}}
     sign_pattern::Array{UInt, 0}
-    function SignedPartitionIterator(n::Int, len::Int)
-        dense_partition = zeros(Int, len)
+    function SignedPartitionIterator(n::T, len::Int) where {T}
+        dense_partition = zeros(T, len)
         if n > 0 && len > 0
             @inbounds dense_partition[1] = n
             sparse_partition = [1 => n]
@@ -690,11 +690,11 @@ struct SignedPartitionIterator
             sparse_partition = Pair{Int, Int}[]
         end
         sign_pattern = fill(UInt(0))
-        return new(dense_partition, sparse_partition, sign_pattern)
+        return new{T}(dense_partition, sparse_partition, sign_pattern)
     end
 end
 
-function incr_partition!(it::SignedPartitionIterator)
+function incr_partition!(it::SignedPartitionIterator{T}) where {T}
     dense = it.dense_partition
     sparse = it.sparse_partition
     s = it.sign_pattern[] + 1
@@ -717,8 +717,8 @@ function incr_partition!(it::SignedPartitionIterator)
     end
 end
 
-function get_partition(::Val{N}, it::SignedPartitionIterator) where {N}
-    result = ntuple(_ -> 0, Val{N}())
+function get_partition(::Val{N}, it::SignedPartitionIterator{T}) where {N, T}
+    result = ntuple(_ -> zero(T), Val{N}())
     s = it.sign_pattern[]
     @inbounds for (i, c) in it.sparse_partition
         result = Base.setindex(result, ifelse(iseven(s), c, -c), i)
@@ -727,8 +727,8 @@ function get_partition(::Val{N}, it::SignedPartitionIterator) where {N}
     return result
 end
 
-function l1_ball(::Val{N}, radius::Int) where {N}
-    result = NTuple{N, Int}[]
+function l1_ball(::Val{N}, radius::T) where {N, T}
+    result = NTuple{N, T}[]
     it = SignedPartitionIterator(radius, N)
     while true
         push!(result, get_partition(Val{N}(), it))
