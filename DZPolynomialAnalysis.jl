@@ -1,6 +1,7 @@
 module DZPolynomialAnalysis
 
-export to_wolfram, has_real_root, is_positive_definite,
+export to_wolfram, find_height_reducing_transformation,
+    has_real_root, is_positive_definite,
     has_unbounded_projection, has_unbounded_vieta_projection
 
 using DZPolynomials
@@ -43,6 +44,54 @@ function to_wolfram(p::Polynomial{T, N, I}) where {T, N, I}
     else
         return W"Plus"(terms...)
     end
+end
+
+################################################################################
+
+function compute_height(expr, rules)
+    monomials = weval(W"MonomialList"(expr))
+    weights = weval(W"ReplaceAll"(monomials, rules))
+    @assert weights.head == W"List"
+    @assert all(w isa Int for w in weights.args)
+    return sum([abs(w) for w in weights.args])
+end
+
+function candidate_transformations(num_vars::Int, radius::Int)
+    vars = WOLFRAM_VARIABLES[num_vars]
+    result = MathLink.WExpr[]
+    for k = 1 : radius
+        for i = 1 : num_vars
+            push!(result, W"Rule"(vars[i], W"Plus"(vars[i], k)))
+            push!(result, W"Rule"(vars[i], W"Subtract"(vars[i], k)))
+        end
+        for i = 1 : num_vars
+            for j = 1 : num_vars
+                if i != j
+                    push!(result, W"Rule"(vars[i],
+                        W"Plus"(vars[i], W"Times"(k, vars[j]))
+                    ))
+                    push!(result, W"Rule"(vars[i],
+                        W"Subtract"(vars[i], W"Times"(k, vars[j]))
+                    ))
+                end
+            end
+        end
+    end
+    return result
+end
+
+function find_height_reducing_transformation(p::Polynomial{T, N, I},
+                                             radius::Int) where {T, N, I}
+    wp = to_wolfram(p)
+    rules = W"List"([W"Rule"(var, 2) for var in WOLFRAM_VARIABLES[N]]...)
+    height = compute_height(wp, rules)
+    for transformation in candidate_transformations(N, radius)
+        wpt = weval(W"ReplaceAll"(wp, transformation))
+        if compute_height(wpt, rules) < height
+            return transformation
+        end
+    end
+    return nothing
 end
 
 ################################################################################
