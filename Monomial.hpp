@@ -2,7 +2,6 @@
 #define DIOPHANTINE_EQUATIONS_MONOMIAL_HPP_INCLUDED
 
 #include <array>   // for std::array
-#include <compare> // for operator<=>
 #include <cstddef> // for std::size_t
 #include <cstdint> // for std::intNN_t, std::uintNN_t
 #include <vector>  // for std::vector
@@ -27,9 +26,6 @@ struct Monomial {
             exponents[i] = static_cast<T_EXPONENT>(0);
         }
     }
-
-
-    constexpr bool operator<=>(const Monomial &) const noexcept = default;
 
 
     constexpr T_EXPONENT get_exponent(std::size_t i) const noexcept {
