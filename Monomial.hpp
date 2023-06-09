@@ -22,9 +22,7 @@ struct Monomial {
 
     explicit constexpr Monomial() noexcept
         : exponents() {
-        for (std::size_t i = 0; i < NUM_VARS; ++i) {
-            exponents[i] = static_cast<T_EXPONENT>(0);
-        }
+        for (std::size_t i = 0; i < NUM_VARS; ++i) { exponents[i] = 0; }
     }
 
 
@@ -35,6 +33,28 @@ struct Monomial {
 
     constexpr void set_exponent(std::size_t i, T_EXPONENT value) noexcept {
         exponents[i] = value;
+    }
+
+
+    constexpr bool is_constant() const noexcept {
+        for (std::size_t i = 0; i < NUM_VARS; ++i) {
+            if (exponents[i] != 0) { return false; }
+        }
+        return true;
+    }
+
+
+    constexpr bool is_constant_in(std::size_t i) const noexcept {
+        return (exponents[i] == 0);
+    }
+
+
+    constexpr bool is_linear_in(std::size_t i) const noexcept {
+        if (exponents[i] != 1) { return false; }
+        for (std::size_t j = 0; j < NUM_VARS; ++j) {
+            if ((i != j) && (exponents[j] != 0)) { return false; }
+        }
+        return true;
     }
 
 
