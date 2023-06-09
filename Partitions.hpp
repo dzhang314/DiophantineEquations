@@ -58,18 +58,21 @@ constexpr bool decrement_partition(std::vector<T> &partition) noexcept {
  * For example, `{(3, 1), (1, 4), (0, 1)}` represents `{8, 2, 2, 2, 2, 1}`.
  */
 template <typename T_INDEX, typename T_VALUE>
-std::vector<std::vector<std::pair<T_INDEX, T_VALUE>>>
+constexpr std::vector<std::vector<std::pair<T_INDEX, T_VALUE>>>
 binary_partitions(T_INDEX i, T_VALUE k) {
+
+    // It is impossible for a sum of powers of two to be negative.
+    if (k < 0) { return {}; }
+
+    // Zero is uniquely expressed by the empty sum.
+    if (k == 0) { return {{}}; }
+
+    // Do not handle negative powers of two.
+    if (i < 0) { return {}; }
 
     // Base case: When `i == 0`, the only possible result is to express `k`
     // as a sum of `k` copies of `1`.
-    if (i == 0) {
-        if (k == 0) {
-            return {{}};
-        } else {
-            return {{std::make_pair(static_cast<T_INDEX>(0), k)}};
-        }
-    }
+    if (i == 0) { return {{std::make_pair(static_cast<T_INDEX>(0), k)}}; }
 
     // Recursive case: Iterate over all possible values for the number of
     // occurrences of `1 << i` in the resulting partition.
@@ -95,6 +98,17 @@ binary_partitions(T_INDEX i, T_VALUE k) {
 }
 
 
+static_assert(binary_partitions<int, int>(-1, -1).size() == 0);
+static_assert(binary_partitions<int, int>(0, -1).size() == 0);
+static_assert(binary_partitions<int, int>(1, -1).size() == 0);
+static_assert(binary_partitions<int, int>(-1, 0).size() == 1);
+static_assert(binary_partitions<int, int>(0, 0).size() == 1);
+static_assert(binary_partitions<int, int>(1, 0).size() == 1);
+static_assert(binary_partitions<int, int>(-1, 1).size() == 0);
+static_assert(binary_partitions<int, int>(0, 1).size() == 1);
+static_assert(binary_partitions<int, int>(1, 1).size() == 1);
+
+
 /**
  * Given an integer `k`, compute and return a list of all possible ways
  * to express `k` as a sum of powers of two.
@@ -104,13 +118,29 @@ binary_partitions(T_INDEX i, T_VALUE k) {
  * For example, `{(3, 1), (1, 4), (0, 1)}` represents `{8, 2, 2, 2, 2, 1}`.
  */
 template <typename T_INDEX, typename T_VALUE>
-std::vector<std::vector<std::pair<T_INDEX, T_VALUE>>>
+constexpr std::vector<std::vector<std::pair<T_INDEX, T_VALUE>>>
 binary_partitions(T_VALUE k) {
+
+    // It is impossible for a sum of powers of two to be negative.
+    if (k < 0) { return {}; }
+
+    // Zero is uniquely expressed by the empty sum.
+    if (k == 0) { return {{}}; }
+
     // Find the largest value of `i` such that `1 << i` is at most `k`.
     T_INDEX i = static_cast<T_INDEX>(0);
     while (static_cast<T_VALUE>(1 << i) <= k) { ++i; }
     return binary_partitions<T_INDEX, T_VALUE>(--i, k);
 }
+
+
+static_assert(binary_partitions<int, int>(-1).size() == 0);
+static_assert(binary_partitions<int, int>(0).size() == 1);
+static_assert(binary_partitions<int, int>(1).size() == 1);
+static_assert(binary_partitions<int, int>(2).size() == 2);
+static_assert(binary_partitions<int, int>(3).size() == 2);
+static_assert(binary_partitions<int, int>(4).size() == 4);
+static_assert(binary_partitions<int, int>(5).size() == 4);
 
 
 } // namespace DiophantineEquations
