@@ -58,6 +58,35 @@ struct Monomial {
     }
 
 
+    constexpr void swap_variables(std::size_t i, std::size_t j) noexcept {
+        const T_EXPONENT temp = exponents[i];
+        exponents[i] = exponents[j];
+        exponents[j] = temp;
+    }
+
+
+    constexpr void rotate_variables_left() noexcept {
+        if constexpr (NUM_VARS > 1) {
+            const T_EXPONENT temp = exponents[0];
+            for (std::size_t i = 0; i < NUM_VARS - 1; ++i) {
+                exponents[i] = exponents[i + 1];
+            }
+            exponents[NUM_VARS - 1] = temp;
+        }
+    }
+
+
+    constexpr void rotate_variables_right() noexcept {
+        if constexpr (NUM_VARS > 1) {
+            const T_EXPONENT temp = exponents[NUM_VARS - 1];
+            for (std::size_t i = NUM_VARS - 1; i > 0; --i) {
+                exponents[i] = exponents[i - 1];
+            }
+            exponents[0] = temp;
+        }
+    }
+
+
     /**
      * Compute and return a list of all possible monomials of total degree
      * `degree` in `NUM_VARS` variables. The returned list is sorted in

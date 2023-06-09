@@ -1,9 +1,12 @@
 #ifndef DIOPHANTINE_EQUATIONS_POLYNOMIAL_HPP_INCLUDED
 #define DIOPHANTINE_EQUATIONS_POLYNOMIAL_HPP_INCLUDED
 
-#include <cstddef> // for std::size_t
-#include <ostream> // for std::ostream
-#include <vector>  // for std::vector
+#include <algorithm> // for std::sort
+#include <array>     // for std::array
+#include <cstddef>   // for std::size_t
+#include <ostream>   // for std::ostream
+#include <utility>   // for std::pair, std::make_pair
+#include <vector>    // for std::vector
 
 #include "Monomial.hpp" // for Monomial, T_COEFF
 
@@ -23,6 +26,14 @@ struct Term {
     )
         : monom(monomial)
         , coeff(coefficient) {}
+
+
+    constexpr void negate() noexcept { coeff = -coeff; }
+
+
+    constexpr void negate_variable(std::size_t i) noexcept {
+        if (monom.get_exponent(i) & 1) { coeff = -coeff; }
+    }
 
 
 }; // struct Term
@@ -71,6 +82,47 @@ struct Polynomial : public std::vector<Term<NUM_VARS>> {
             if (has_linear_variable(i)) { return true; }
         }
         return false;
+    }
+
+
+    constexpr void swap_variables(std::size_t i, std::size_t j) noexcept {
+        for (Term<NUM_VARS> &term : *this) { term.monom.swap_variables(i, j); }
+    }
+
+
+    constexpr void rotate_variables_left() noexcept {
+        for (Term<NUM_VARS> &term : *this) {
+            term.monom.rotate_variables_left();
+        }
+    }
+
+
+    constexpr void rotate_variables_right() noexcept {
+        for (Term<NUM_VARS> &term : *this) {
+            term.monom.rotate_variables_right();
+        }
+    }
+
+
+    constexpr void negate() noexcept {
+        for (Term<NUM_VARS> &term : *this) { term.negate(); }
+    }
+
+
+    constexpr void negate_variable(std::size_t i) noexcept {
+        for (Term<NUM_VARS> &term : *this) { term.negate_variable(i); }
+    }
+
+
+    constexpr std::vector<std::pair<std::array<T_EXPONENT, NUM_VARS>, T_COEFF>>
+    canonical_form() const noexcept {
+        std::vector<std::pair<std::array<T_EXPONENT, NUM_VARS>, T_COEFF>>
+            result;
+        for (const Term<NUM_VARS> &term : *this) {
+            result.emplace_back(term.monom.exponents, term.coeff);
+        }
+        std::sort(result.begin(), result.end());
+        return result;
     }
 
 

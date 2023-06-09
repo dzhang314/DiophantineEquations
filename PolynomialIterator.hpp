@@ -131,6 +131,13 @@ struct PolynomialIterator {
     }
 
 
+    constexpr void reset() noexcept {
+        for (HomogeneousPolynomialIterator<NUM_VARS> &iterator : iterators) {
+            iterator.reset();
+        }
+    }
+
+
 }; // struct PolynomialIterator
 
 
