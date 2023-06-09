@@ -80,7 +80,6 @@ struct HomogeneousPolynomialIterator {
 
 
     constexpr void reset() noexcept {
-        using index_t = typename std::vector<T_COEFF>::size_type;
         T_COEFF weight = 0;
         for (index_t i = 0; i < dense_partition.size(); ++i) {
             weight += dense_partition[i];
