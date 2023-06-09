@@ -2,6 +2,7 @@
 #define DIOPHANTINE_EQUATIONS_MONOMIAL_HPP_INCLUDED
 
 #include <array>   // for std::array
+#include <compare> // for operator<=>
 #include <cstddef> // for std::size_t
 #include <cstdint> // for std::intNN_t, std::uintNN_t
 #include <vector>  // for std::vector
@@ -10,13 +11,15 @@ namespace DiophantineEquations {
 
 
 using T_COEFF = std::int16_t;
-using T_EXPONENT = std::uint8_t;
+using T_EXPONENT = std::uint16_t;
 
 
 template <std::size_t NUM_VARS>
 struct Monomial {
 
+
     std::array<T_EXPONENT, NUM_VARS> exponents;
+
 
     explicit constexpr Monomial() noexcept
         : exponents() {
@@ -25,13 +28,19 @@ struct Monomial {
         }
     }
 
+
+    constexpr bool operator<=>(const Monomial &) const noexcept = default;
+
+
     constexpr T_EXPONENT get_exponent(std::size_t i) const noexcept {
         return exponents[i];
     }
 
+
     constexpr void set_exponent(std::size_t i, T_EXPONENT value) noexcept {
         exponents[i] = value;
     }
+
 
     /**
      * Compute and return a list of all possible monomials of total degree
@@ -68,24 +77,8 @@ struct Monomial {
         return result;
     }
 
+
 }; // struct Monomial
-
-
-// template <std::size_t NUM_VARS>
-// struct Term {
-
-//     Monomial<NUM_VARS> monomial;
-//     T_COEFF coefficient;
-
-// }; // struct Term
-
-
-// template <std::size_t NUM_VARS>
-// struct Polynomial {
-
-//     std::vector<Term<NUM_VARS>> terms;
-
-// }; // struct Polynomial
 
 
 } // namespace DiophantineEquations
