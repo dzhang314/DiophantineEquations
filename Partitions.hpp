@@ -59,7 +59,7 @@ constexpr bool decrement_partition(std::vector<T> &partition) noexcept {
  */
 template <typename T_INDEX, typename T_VALUE>
 constexpr std::vector<std::vector<std::pair<T_INDEX, T_VALUE>>>
-binary_partitions(T_INDEX i, T_VALUE k) {
+binary_partitions(T_INDEX i, T_VALUE k) noexcept {
 
     // It is impossible for a sum of powers of two to be negative.
     if (k < 0) { return {}; }
@@ -119,7 +119,7 @@ static_assert(binary_partitions<int, int>(1, 1).size() == 1);
  */
 template <typename T_INDEX, typename T_VALUE>
 constexpr std::vector<std::vector<std::pair<T_INDEX, T_VALUE>>>
-binary_partitions(T_VALUE k) {
+binary_partitions(T_VALUE k) noexcept {
 
     // It is impossible for a sum of powers of two to be negative.
     if (k < 0) { return {}; }
