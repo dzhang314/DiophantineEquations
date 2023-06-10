@@ -36,7 +36,28 @@ struct Term {
     }
 
 
+    constexpr std::size_t hash() const noexcept {
+        constexpr std::size_t SHIFT =
+            static_cast<std::size_t>(0x9E3779B97F4A7C15ULL);
+        constexpr std::size_t MULTIPLIER =
+            static_cast<std::size_t>(0x517CC1B727220A94ULL);
+        std::size_t result = static_cast<std::size_t>(coeff) * MULTIPLIER;
+        for (std::size_t i = 0; i < NUM_VARS; ++i) {
+            result ^=
+                static_cast<std::size_t>(monom.get_exponent(i)) * MULTIPLIER +
+                SHIFT + (result << 6) + (result >> 2);
+        }
+        return result;
+    }
+
+
 }; // struct Term
+
+
+static_assert(sizeof(Term<1>) == sizeof(T_EXPONENT) + sizeof(T_COEFF));
+static_assert(sizeof(Term<2>) == 2 * sizeof(T_EXPONENT) + sizeof(T_COEFF));
+static_assert(sizeof(Term<3>) == 3 * sizeof(T_EXPONENT) + sizeof(T_COEFF));
+static_assert(sizeof(Term<4>) == 4 * sizeof(T_EXPONENT) + sizeof(T_COEFF));
 
 
 template <std::size_t NUM_VARS>
@@ -111,6 +132,13 @@ struct Polynomial : public std::vector<Term<NUM_VARS>> {
 
     constexpr void negate_variable(std::size_t i) noexcept {
         for (Term<NUM_VARS> &term : *this) { term.negate_variable(i); }
+    }
+
+
+    constexpr std::size_t hash() const noexcept {
+        std::size_t result = 0;
+        for (const Term<NUM_VARS> &term : *this) { result += term.hash(); }
+        return result;
     }
 
 
