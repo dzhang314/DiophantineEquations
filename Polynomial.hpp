@@ -1,12 +1,9 @@
 #ifndef DIOPHANTINE_EQUATIONS_POLYNOMIAL_HPP_INCLUDED
 #define DIOPHANTINE_EQUATIONS_POLYNOMIAL_HPP_INCLUDED
 
-#include <algorithm> // for std::sort
-#include <array>     // for std::array
-#include <cstddef>   // for std::size_t
-#include <ostream>   // for std::ostream
-#include <utility>   // for std::pair, std::make_pair
-#include <vector>    // for std::vector
+#include <cstddef> // for std::size_t
+#include <ostream> // for std::ostream
+#include <vector>  // for std::vector
 
 #include "Monomial.hpp" // for Monomial, T_COEFF
 
@@ -138,18 +135,6 @@ struct Polynomial : public std::vector<Term<NUM_VARS>> {
     constexpr std::size_t hash() const noexcept {
         std::size_t result = 0;
         for (const Term<NUM_VARS> &term : *this) { result += term.hash(); }
-        return result;
-    }
-
-
-    constexpr std::vector<std::pair<std::array<T_EXPONENT, NUM_VARS>, T_COEFF>>
-    canonical_form() const noexcept {
-        std::vector<std::pair<std::array<T_EXPONENT, NUM_VARS>, T_COEFF>>
-            result;
-        for (const Term<NUM_VARS> &term : *this) {
-            result.emplace_back(term.monom.exponents, term.coeff);
-        }
-        std::sort(result.begin(), result.end());
         return result;
     }
 
