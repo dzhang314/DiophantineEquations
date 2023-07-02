@@ -3,7 +3,7 @@
 
 #include <array>       // for std::array
 #include <cstddef>     // for std::size_t
-#include <cstdint>     // for std::uintmax_t
+#include <cstdint>     // for std::intmax_t, std::uintmax_t
 #include <ostream>     // for std::ostream
 #include <type_traits> // for std::is_signed
 #include <utility>     // for std::pair
@@ -286,7 +286,7 @@ operator<<(std::ostream &os, const Polynomial<NUM_VARS> &polynomial) {
 
         const T_COEFF abs_coeff = sign ? -term.coeff : term.coeff;
         if ((abs_coeff != 1) || term.monom.is_constant()) {
-            os << static_cast<long long int>(abs_coeff);
+            os << static_cast<std::intmax_t>(abs_coeff);
         }
 
         for (std::size_t i = 0; i < NUM_VARS; ++i) {
@@ -295,7 +295,7 @@ operator<<(std::ostream &os, const Polynomial<NUM_VARS> &polynomial) {
                 os << static_cast<char>(((NUM_VARS <= 3) ? 'x' : 'a') + i);
                 if (exponent != 1) {
                     os << '^';
-                    os << static_cast<long long int>(exponent);
+                    os << static_cast<std::intmax_t>(exponent);
                 }
             }
         }
