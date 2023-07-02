@@ -17,13 +17,15 @@ template <std::size_t NUM_VARS>
 struct HomogeneousPolynomialIterator {
 
 
+    using dense_index_t = std::vector<T_COEFF>::size_type;
+    using sparse_index_t =
+        std::vector<std::pair<dense_index_t, T_COEFF>>::size_type;
+
+
     std::vector<Monomial<NUM_VARS>> monomials;
     std::vector<T_COEFF> dense_partition;
-    std::vector<std::pair<std::size_t, T_COEFF>> sparse_partition;
+    std::vector<std::pair<dense_index_t, T_COEFF>> sparse_partition;
     std::uintmax_t sign_pattern;
-
-
-    using index_t = std::vector<T_COEFF>::size_type;
 
 
     explicit constexpr HomogeneousPolynomialIterator(
@@ -40,7 +42,7 @@ struct HomogeneousPolynomialIterator {
 
     constexpr void update_sparse_partition() noexcept {
         sparse_partition.clear();
-        for (index_t i = 0; i < dense_partition.size(); ++i) {
+        for (dense_index_t i = 0; i < dense_partition.size(); ++i) {
             if (dense_partition[i] != 0) {
                 sparse_partition.emplace_back(i, dense_partition[i]);
             }
@@ -48,19 +50,19 @@ struct HomogeneousPolynomialIterator {
     }
 
 
-    constexpr T_COEFF extract_sign(index_t i) const noexcept {
+    constexpr bool extract_sign(sparse_index_t i) const noexcept {
         const std::uintmax_t selected_bit = static_cast<std::uintmax_t>(1)
                                             << (sparse_partition.size() - ++i);
-        return static_cast<T_COEFF>((sign_pattern & selected_bit) ? -1 : +1);
+        return static_cast<bool>(sign_pattern & selected_bit);
     }
 
 
     constexpr void extract_polynomial(Polynomial<NUM_VARS> &polynomial
     ) const noexcept {
-        index_t i = 0;
+        sparse_index_t i = 0;
         for (const auto &[index, coeff] : sparse_partition) {
             polynomial.emplace_back(
-                monomials[index], extract_sign(i++) * coeff
+                monomials[index], extract_sign(i++) ? -coeff : coeff
             );
         }
     }
@@ -81,7 +83,7 @@ struct HomogeneousPolynomialIterator {
 
     constexpr void reset() noexcept {
         T_COEFF weight = 0;
-        for (index_t i = 0; i < dense_partition.size(); ++i) {
+        for (dense_index_t i = 0; i < dense_partition.size(); ++i) {
             weight += dense_partition[i];
             dense_partition[i] = 0;
         }
