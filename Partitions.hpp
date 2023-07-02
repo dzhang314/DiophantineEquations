@@ -1,6 +1,7 @@
 #ifndef DIOPHANTINE_EQUATIONS_PARTITIONS_HPP_INCLUDED
 #define DIOPHANTINE_EQUATIONS_PARTITIONS_HPP_INCLUDED
 
+#include <array>   // for std::array
 #include <utility> // for std::move, std::pair, std::make_pair
 #include <vector>  // for std::vector
 
@@ -39,6 +40,46 @@ constexpr bool decrement_partition(std::vector<T> &partition) noexcept {
             partition[i - 1] -= ONE;
             partition[i] = partition[n - 1] + ONE;
             partition[n - 1] = ZERO;
+            return true;
+        }
+    }
+
+    // If we find no positive elements, then we already have the
+    // lexicographically smallest partition, which cannot be decremented.
+    return false;
+}
+
+
+/**
+ * Given a list of non-negative integers, compute another list of non-negative
+ * integers, having the same sum as the given list, which is next smallest in
+ * lexicographic order. The result is returned in-place by modifying the input.
+ */
+template <typename T, std::size_t N>
+constexpr bool decrement_partition(std::array<T, N> &partition) noexcept {
+
+    // Partitions of length 0 and 1 are unique, so they cannot be incremented.
+    if constexpr (N <= 1) { return false; }
+
+    constexpr T ZERO = static_cast<T>(0);
+    constexpr T ONE = static_cast<T>(1);
+
+    // If the next-to-last element is positive, decrement it and increment the
+    // final element.
+    if (partition[N - 2] > 0) {
+        partition[N - 2] -= ONE;
+        partition[N - 1] += ONE;
+        return true;
+    }
+
+    // Otherwise, scan backwards until we find a positive element.
+    for (std::size_t i = N - 2; i > 0; --i) {
+        // If we find one, decrement it and move the value of the final element
+        // backwards into the next element.
+        if (partition[i - 1] > 0) {
+            partition[i - 1] -= ONE;
+            partition[i] = partition[N - 1] + ONE;
+            partition[N - 1] = ZERO;
             return true;
         }
     }
