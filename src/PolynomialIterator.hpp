@@ -14,7 +14,10 @@ namespace DiophantineEquations {
 
 
 template <std::size_t NUM_VARS>
-struct HomogeneousPolynomialIterator {
+class HomogeneousPolynomialIterator {
+
+
+private: ////////////////////////////////////////////////////////// TYPE ALIASES
 
 
     using dense_index_t = std::vector<T_COEFF>::size_type;
@@ -22,10 +25,16 @@ struct HomogeneousPolynomialIterator {
         std::vector<std::pair<dense_index_t, T_COEFF>>::size_type;
 
 
+private: ////////////////////////////////////////////////////// MEMBER VARIABLES
+
+
     std::vector<Monomial<NUM_VARS>> monomials;
     std::vector<T_COEFF> dense_partition;
     std::vector<std::pair<dense_index_t, T_COEFF>> sparse_partition;
     std::uintmax_t sign_pattern;
+
+
+public: //////////////////////////////////////////////////////////// CONSTRUCTOR
 
 
     explicit constexpr HomogeneousPolynomialIterator(
@@ -38,6 +47,9 @@ struct HomogeneousPolynomialIterator {
         dense_partition[0] = weight;
         update_sparse_partition();
     }
+
+
+private: ////////////////////////////////////////////////////// HELPER FUNCTIONS
 
 
     constexpr void update_sparse_partition() noexcept {
@@ -55,6 +67,9 @@ struct HomogeneousPolynomialIterator {
                                             << (sparse_partition.size() - ++i);
         return static_cast<bool>(sign_pattern & selected_bit);
     }
+
+
+public: ///////////////////////////////////////////////////// ITERATOR INTERFACE
 
 
     constexpr void extract_polynomial(Polynomial<NUM_VARS> &polynomial
@@ -97,10 +112,16 @@ struct HomogeneousPolynomialIterator {
 
 
 template <std::size_t NUM_VARS>
-struct PolynomialIterator {
+class PolynomialIterator {
+
+
+private: ////////////////////////////////////////////////////// MEMBER VARIABLES
 
 
     std::vector<HomogeneousPolynomialIterator<NUM_VARS>> iterators;
+
+
+public: //////////////////////////////////////////////////////////// CONSTRUCTOR
 
 
     explicit constexpr PolynomialIterator(
@@ -111,6 +132,9 @@ struct PolynomialIterator {
             iterators.emplace_back(degree, weight);
         }
     }
+
+
+public: ///////////////////////////////////////////////////// ITERATOR INTERFACE
 
 
     constexpr Polynomial<NUM_VARS> get_polynomial() const noexcept {

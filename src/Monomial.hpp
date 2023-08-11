@@ -14,16 +14,28 @@ using T_EXPONENT = std::uint16_t;
 
 
 template <std::size_t NUM_VARS>
-struct Monomial {
+class Monomial {
+
+
+private: ////////////////////////////////////////////////////// MEMBER VARIABLES
 
 
     std::array<T_EXPONENT, NUM_VARS> exponents;
 
 
+public: //////////////////////////////////////////////////////////// CONSTRUCTOR
+
+
+    /**
+     * Construct a constant monomial (with all exponents set to zero).
+     */
     explicit constexpr Monomial() noexcept
         : exponents() {
         for (std::size_t i = 0; i < NUM_VARS; ++i) { exponents[i] = 0; }
     }
+
+
+public: ////////////////////////////////////////////////////////////// ACCESSORS
 
 
     constexpr T_EXPONENT get_exponent(std::size_t i) const noexcept {
@@ -31,9 +43,15 @@ struct Monomial {
     }
 
 
+public: /////////////////////////////////////////////////////////////// MUTATORS
+
+
     constexpr void set_exponent(std::size_t i, T_EXPONENT value) noexcept {
         exponents[i] = value;
     }
+
+
+public: /////////////////////////////////////////////////////// PROPERTY TESTING
 
 
     constexpr bool is_constant() const noexcept {
@@ -56,6 +74,9 @@ struct Monomial {
         }
         return true;
     }
+
+
+public: //////////////////////////////////////////////////// SYMMETRY OPERATIONS
 
 
     constexpr void swap_variables(std::size_t i, std::size_t j) noexcept {
@@ -87,6 +108,9 @@ struct Monomial {
     }
 
 
+public: //////////////////////////////////////////////////////////// ENUMERATION
+
+
     /**
      * Compute and return a list of all possible monomials of total degree
      * `degree` in `NUM_VARS` variables. The returned list is sorted in
@@ -103,7 +127,7 @@ struct Monomial {
             result.push_back(monomial);
         } else {
             // To produce monomials in degrevlex order, iterate over
-            // possible values of the exponent of the *last* variable.
+            // possible values of the exponent of the last variable.
             for (T_EXPONENT last = 0; last <= degree; ++last) {
                 // Recursively compute all possible monomials of the
                 // remaining total degree in `NUM_VARS - 1` variables.
