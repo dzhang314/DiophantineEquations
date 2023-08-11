@@ -3,6 +3,7 @@
 set -e
 
 mkdir -p bin
+mkdir -p data
 
 clang++ -std=c++20 \
     -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic \
