@@ -66,7 +66,7 @@ std::vector<Polynomial<NUM_VARS>> unique_polynomials(
         if (selector(poly)) {
             const std::size_t hash = poly.hash();
             if (index_table.contains(hash)) {
-                std::cerr << "ERROR: HASH COLLISION" << std::endl;
+                std::cerr << "INTERNAL ERROR: HASH COLLISION" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
             index_table.insert({hash, count++});
@@ -81,18 +81,18 @@ std::vector<Polynomial<NUM_VARS>> unique_polynomials(
         Polynomial<NUM_VARS> poly = polynomial_iterator.get_polynomial();
         if (selector(poly)) {
 
-            poly.swap_variables(0, 1);
+            if constexpr (NUM_VARS >= 2) { poly.swap_variables(0, 1); }
             const std::size_t hash_swap = poly.hash();
-            poly.swap_variables(0, 1);
-            poly.rotate_variables_left();
+            if constexpr (NUM_VARS >= 2) { poly.swap_variables(0, 1); }
+            if constexpr (NUM_VARS >= 1) { poly.rotate_variables_left(); }
             const std::size_t hash_rotate = poly.hash();
-            poly.rotate_variables_right();
+            if constexpr (NUM_VARS >= 1) { poly.rotate_variables_right(); }
             poly.negate();
             const std::size_t hash_negate = poly.hash();
             poly.negate();
-            poly.negate_variable(0);
+            if constexpr (NUM_VARS >= 1) { poly.negate_variable(0); }
             const std::size_t hash_sign = poly.hash();
-            poly.negate_variable(0);
+            if constexpr (NUM_VARS >= 1) { poly.negate_variable(0); }
 
             const auto find_swap = index_table.find(hash_swap);
             const auto find_rotate = index_table.find(hash_rotate);
@@ -103,7 +103,7 @@ std::vector<Polynomial<NUM_VARS>> unique_polynomials(
                 (find_rotate == index_table_end) ||
                 (find_negate == index_table_end) ||
                 (find_sign == index_table_end)) {
-                std::cerr << "ERROR: HASH NOT FOUND" << std::endl;
+                std::cerr << "INTERNAL ERROR: HASH NOT FOUND" << std::endl;
                 std::exit(EXIT_FAILURE);
             }
 
@@ -140,31 +140,89 @@ std::vector<Polynomial<NUM_VARS>> unique_polynomials(
 }
 
 
-int main() {
-
-    for (T_COEFF weight = 0; weight <= 30; ++weight) {
-        std::cout << weight << std::endl;
-        const auto partitions = binary_partitions<T_EXPONENT, T_COEFF>(weight);
-        for (const auto &partition : partitions) {
-            const auto polynomials =
-                unique_polynomials<4>(partition, [](const Polynomial<4> &poly) {
-                    return poly.uses_all_variables() &&
-                           poly.has_constant_term() &&
-                           !poly.has_linear_variable() &&
-                           !poly.has_root_in_radius<std::intmax_t>(1) &&
-                           !poly.has_root_in_radius<std::intmax_t>(2) &&
-                           !poly.has_root_in_radius<std::intmax_t>(3) &&
-                           !poly.has_root_in_radius<std::intmax_t>(4) &&
-                           !poly.has_root_in_radius<std::intmax_t>(5) &&
-                           !poly.has_root_in_radius<std::intmax_t>(6) &&
-                           !poly.has_root_in_radius<std::intmax_t>(7) &&
-                           !poly.has_root_in_radius<std::intmax_t>(8) &&
-                           !poly.has_root_in_radius<std::intmax_t>(9) &&
-                           !poly.has_root_in_radius<std::intmax_t>(10);
-                });
-            for (const auto &poly : polynomials) {
-                std::cout << poly << std::endl;
+template <std::size_t NUM_VARS>
+void print_polynomials(T_COEFF weight) {
+    const auto partitions = binary_partitions<T_EXPONENT, T_COEFF>(weight);
+    for (const auto &partition : partitions) {
+        const auto polynomials = unique_polynomials<NUM_VARS>(
+            partition,
+            [](const Polynomial<NUM_VARS> &poly) {
+                return poly.uses_all_variables();
             }
+        );
+        for (const auto &poly : polynomials) { std::cout << poly << '\n'; }
+    }
+    std::cout << std::flush;
+}
+
+
+int main(int argc, char **argv) {
+
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " num_vars weight" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    for (char *num_vars_ptr = argv[1]; *num_vars_ptr; ++num_vars_ptr) {
+        if (*num_vars_ptr < '0' || *num_vars_ptr > '9') {
+            std::cerr << "ERROR: num_vars must be an integer between 1 and 26."
+                      << std::endl;
+            return EXIT_FAILURE;
         }
     }
+
+    for (char *weight_ptr = argv[2]; *weight_ptr; ++weight_ptr) {
+        if (*weight_ptr < '0' || *weight_ptr > '9') {
+            std::cerr << "ERROR: weight must be a non-negative integer."
+                      << std::endl;
+            return EXIT_FAILURE;
+        }
+    }
+
+    const std::size_t num_vars =
+        static_cast<std::size_t>(std::strtoull(argv[1], nullptr, 10));
+    if (num_vars < 1 || num_vars > 26) {
+        std::cerr << "ERROR: num_vars must be an integer between 1 and 26."
+                  << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    const T_COEFF weight =
+        static_cast<T_COEFF>(std::strtoull(argv[2], nullptr, 10));
+    if (weight < 0) {
+        std::cerr << "ERROR: weight must be a non-negative integer."
+                  << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    switch (num_vars) {
+        case 1: print_polynomials<1>(weight); return EXIT_SUCCESS;
+        case 2: print_polynomials<2>(weight); return EXIT_SUCCESS;
+        case 3: print_polynomials<3>(weight); return EXIT_SUCCESS;
+        case 4: print_polynomials<4>(weight); return EXIT_SUCCESS;
+        case 5: print_polynomials<5>(weight); return EXIT_SUCCESS;
+        case 6: print_polynomials<6>(weight); return EXIT_SUCCESS;
+        case 7: print_polynomials<7>(weight); return EXIT_SUCCESS;
+        case 8: print_polynomials<8>(weight); return EXIT_SUCCESS;
+        case 9: print_polynomials<9>(weight); return EXIT_SUCCESS;
+        case 10: print_polynomials<10>(weight); return EXIT_SUCCESS;
+        case 11: print_polynomials<11>(weight); return EXIT_SUCCESS;
+        case 12: print_polynomials<12>(weight); return EXIT_SUCCESS;
+        case 13: print_polynomials<13>(weight); return EXIT_SUCCESS;
+        case 14: print_polynomials<14>(weight); return EXIT_SUCCESS;
+        case 15: print_polynomials<15>(weight); return EXIT_SUCCESS;
+        case 16: print_polynomials<16>(weight); return EXIT_SUCCESS;
+        case 17: print_polynomials<17>(weight); return EXIT_SUCCESS;
+        case 18: print_polynomials<18>(weight); return EXIT_SUCCESS;
+        case 19: print_polynomials<19>(weight); return EXIT_SUCCESS;
+        case 20: print_polynomials<20>(weight); return EXIT_SUCCESS;
+        case 21: print_polynomials<21>(weight); return EXIT_SUCCESS;
+        case 22: print_polynomials<22>(weight); return EXIT_SUCCESS;
+        case 23: print_polynomials<23>(weight); return EXIT_SUCCESS;
+        case 24: print_polynomials<24>(weight); return EXIT_SUCCESS;
+        case 25: print_polynomials<25>(weight); return EXIT_SUCCESS;
+        case 26: print_polynomials<26>(weight); return EXIT_SUCCESS;
+    }
+
+    return EXIT_FAILURE;
 }
