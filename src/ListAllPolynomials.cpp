@@ -156,6 +156,8 @@ void print_polynomials(T_COEFF weight) {
 }
 
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
 int main(int argc, char **argv) {
 
     if (argc != 3) {
@@ -226,3 +228,4 @@ int main(int argc, char **argv) {
 
     return EXIT_FAILURE;
 }
+#pragma clang diagnostic pop
