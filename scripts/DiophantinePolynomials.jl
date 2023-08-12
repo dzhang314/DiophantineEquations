@@ -9,7 +9,7 @@ const Polynomial{N} = Vector{Term{N}}
 
 ################################################################################
 
-export has_constant_term, has_coprime_terms,
+export has_constant_term, has_coprime_terms, has_linear_variable,
     is_positive_semidefinite, is_negative_semidefinite
 
 function has_constant_term(p::Polynomial{N}) where {N}
@@ -31,6 +31,21 @@ function has_coprime_terms(p::Polynomial{N}) where {N}
     return isone(c) && all(iszero.(m))
 end
 
+function has_linear_variable(p::Polynomial{N}, i::Int) where {N}
+    @inbounds (_, m) = p[i]
+    return all(
+        all(iszero.(min.(m, n))) || (i == j)
+        for (j, (_, n)) in enumerate(p)
+    )
+end
+
+function has_linear_variable(p::Polynomial{N}) where {N}
+    return any(
+        any(isone.(m)) && has_linear_variable(p, i)
+        for (i, (_, m)) in enumerate(p)
+    )
+end
+
 function is_positive_semidefinite(p::Polynomial{N}) where {N}
     return all((c >= 0) && all(iseven, m) for (c, m) in p)
 end
@@ -49,6 +64,11 @@ precompile(has_coprime_terms, (Polynomial{2},))
 precompile(has_coprime_terms, (Polynomial{3},))
 precompile(has_coprime_terms, (Polynomial{4},))
 precompile(has_coprime_terms, (Polynomial{5},))
+precompile(has_linear_variable, (Polynomial{1},))
+precompile(has_linear_variable, (Polynomial{2},))
+precompile(has_linear_variable, (Polynomial{3},))
+precompile(has_linear_variable, (Polynomial{4},))
+precompile(has_linear_variable, (Polynomial{5},))
 precompile(is_positive_semidefinite, (Polynomial{1},))
 precompile(is_positive_semidefinite, (Polynomial{2},))
 precompile(is_positive_semidefinite, (Polynomial{3},))
@@ -338,16 +358,38 @@ export has_small_root
 end
 
 @inline function evaluate_small(p::Polynomial{N}, x::NTuple{N,Int8}) where {N}
-    return sum(evaluate_small(term, x) for term in p)
+    result = 0
+    for term in p
+        result += evaluate_small(term, x)
+    end
+    return result
 end
 
-function has_small_root(p::Polynomial{N}) where {N}
-    range = Int8[0, 1, -1, 2, -2]
-    return any(
-        iszero(evaluate_small(p, x))
-        for x in Iterators.product(ntuple(_ -> range, Val{N}())...)
+function candidate_small_roots(::Val{N}) where {N}
+    range = Int8(-2):Int8(+2)
+    product = Iterators.product(ntuple(_ -> range, Val{N}())...)
+    result = reshape(collect(product), :)
+    return sort!(result; by=(x -> sum(abs.(x))))
+end
+
+function small_root_test(x::NTuple{N,Int8}) where {N}
+    args = Expr(:tuple, [Expr(:call, :Int8, i) for i in x]...)
+    test = Expr(:call, :iszero, Expr(:call, :evaluate_small, :p, args))
+    return Expr(:if, test, Expr(:return, true))
+end
+
+@generated function has_small_root(p::Polynomial{N}) where {N}
+    return Expr(:block,
+        small_root_test.(candidate_small_roots(Val{N}()))...,
+        Expr(:return, false)
     )
 end
+
+precompile(has_small_root, (Polynomial{1},))
+precompile(has_small_root, (Polynomial{2},))
+precompile(has_small_root, (Polynomial{3},))
+precompile(has_small_root, (Polynomial{4},))
+precompile(has_small_root, (Polynomial{5},))
 
 ################################################################################
 
@@ -389,5 +431,85 @@ function has_root_modulo(p::Polynomial{N}, ::Val{K}) where {N,K}
         for x in Iterators.product(ntuple(_ -> range, Val{N}())...)
     )
 end
+
+precompile(has_root_modulo, (Polynomial{1}, Val{2}))
+precompile(has_root_modulo, (Polynomial{2}, Val{2}))
+precompile(has_root_modulo, (Polynomial{3}, Val{2}))
+precompile(has_root_modulo, (Polynomial{4}, Val{2}))
+precompile(has_root_modulo, (Polynomial{5}, Val{2}))
+precompile(has_root_modulo, (Polynomial{1}, Val{3}))
+precompile(has_root_modulo, (Polynomial{2}, Val{3}))
+precompile(has_root_modulo, (Polynomial{3}, Val{3}))
+precompile(has_root_modulo, (Polynomial{4}, Val{3}))
+precompile(has_root_modulo, (Polynomial{5}, Val{3}))
+precompile(has_root_modulo, (Polynomial{1}, Val{4}))
+precompile(has_root_modulo, (Polynomial{2}, Val{4}))
+precompile(has_root_modulo, (Polynomial{3}, Val{4}))
+precompile(has_root_modulo, (Polynomial{4}, Val{4}))
+precompile(has_root_modulo, (Polynomial{5}, Val{4}))
+precompile(has_root_modulo, (Polynomial{1}, Val{5}))
+precompile(has_root_modulo, (Polynomial{2}, Val{5}))
+precompile(has_root_modulo, (Polynomial{3}, Val{5}))
+precompile(has_root_modulo, (Polynomial{4}, Val{5}))
+precompile(has_root_modulo, (Polynomial{5}, Val{5}))
+
+################################################################################
+
+export load_nontrivial_polynomials
+
+function load_nontrivial_polynomials(::Val{N}, path::String) where {N}
+    result = Polynomial{N}[]
+    for line in eachline(path)
+        p = parse_polynomial(Val{N}(), line)
+        if (has_constant_term(p) &&
+            has_coprime_terms(p) &&
+            !has_linear_variable(p) &&
+            !is_positive_semidefinite(p) &&
+            !is_negative_semidefinite(p) &&
+            !has_small_root(p) &&
+            has_root_modulo(p, Val{2}()) &&
+            has_root_modulo(p, Val{3}()) &&
+            has_root_modulo(p, Val{4}()) &&
+            has_root_modulo(p, Val{5}()))
+            push!(result, p)
+        end
+    end
+    return result
+end
+
+function load_nontrivial_polynomials(::Val{N}, paths::Vector{String}) where {N}
+    result = Polynomial{N}[]
+    for path in paths
+        for line in eachline(path)
+            p = parse_polynomial(Val{N}(), line)
+            if (has_constant_term(p) &&
+                has_coprime_terms(p) &&
+                !has_linear_variable(p) &&
+                !is_positive_semidefinite(p) &&
+                !is_negative_semidefinite(p) &&
+                !has_small_root(p) &&
+                has_root_modulo(p, Val{2}()) &&
+                has_root_modulo(p, Val{3}()) &&
+                has_root_modulo(p, Val{4}()) &&
+                has_root_modulo(p, Val{5}()))
+                push!(result, p)
+            end
+        end
+    end
+    return result
+end
+
+precompile(load_nontrivial_polynomials, (Val{1}, String))
+precompile(load_nontrivial_polynomials, (Val{2}, String))
+precompile(load_nontrivial_polynomials, (Val{3}, String))
+precompile(load_nontrivial_polynomials, (Val{4}, String))
+precompile(load_nontrivial_polynomials, (Val{5}, String))
+precompile(load_nontrivial_polynomials, (Val{1}, Vector{String}))
+precompile(load_nontrivial_polynomials, (Val{2}, Vector{String}))
+precompile(load_nontrivial_polynomials, (Val{3}, Vector{String}))
+precompile(load_nontrivial_polynomials, (Val{4}, Vector{String}))
+precompile(load_nontrivial_polynomials, (Val{5}, Vector{String}))
+
+
 
 end # module DiophantinePolynomials

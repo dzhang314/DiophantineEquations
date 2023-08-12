@@ -8,7 +8,7 @@ export Monomial, Polynomial, coefficient_of,
     to_string, to_latex,
     apply_transposition, apply_cycle, apply_negation, apply_signflip,
     apply_transposition!, apply_cycle!, apply_negation!, apply_signflip!,
-    incr_partition!, integer_partitions, binary_partitions,
+    incr_partition!, integer_partitions,
     HomogeneousPolynomialIterator, get_polynomial, incr_polynomial!,
     l1_ball
 
@@ -17,18 +17,6 @@ export Monomial, Polynomial, coefficient_of,
 const Monomial{T,N,I} = Pair{NTuple{N,I},T}
 
 const Polynomial{T,N,I} = Vector{Monomial{T,N,I}}
-
-function (p::Polynomial{T,N,I})(x::NTuple{N,X}) where {T,N,I,X}
-    result = zero(X)
-    for (m, c) in p
-        result += *(X(c), Base.power_by_squaring.(x, m)...)
-    end
-    return result
-end
-
-function (p::Polynomial{T,N,I})(x::Vararg{X,N}) where {T,N,I,X}
-    return p(x)
-end
 
 function coefficient_of(p::Polynomial{T,N,I}, m::NTuple{N,I}) where {T,N,I}
     for (n, c) in p
@@ -283,164 +271,6 @@ function integer_partitions(n::T, len::Int) where {T}
         end
     end
     return result
-end
-
-################################################################################
-
-function ilog2(::Type{T}, n::I) where {T,I}
-    result = zero(T)
-    one_T = one(T)
-    acc = one(I)
-    two = acc + acc
-    while acc < n
-        acc *= two
-        result += one_T
-    end
-    return result
-end
-
-function binary_partitions!(result::Vector{Vector{Pair{I,T}}},
-    partition::Vector{Pair{I,T}},
-    n::T, k::I) where {T,I}
-    if iszero(n)
-        push!(result, copy(partition))
-    elseif n > zero(T) && k > zero(I)
-        one_T = one(T)
-        one_I = one(I)
-        j = k - one_I
-        while true
-            weight = one_T << j
-            i = n >> j
-            while true
-                if iszero(i)
-                    break
-                end
-                push!(partition, j => i)
-                binary_partitions!(result, partition, n - i * weight, j)
-                Base._deleteend!(partition, 1)
-                i -= one_T
-            end
-            if iszero(j)
-                break
-            else
-                j -= one_I
-            end
-        end
-    end
-    return result
-end
-
-function binary_partitions(n::T, ::Type{I}) where {T,I}
-    return binary_partitions!(
-        Vector{Pair{I,T}}[],
-        Pair{I,T}[],
-        n,
-        ilog2(I, n) + one(I)
-    )
-end
-
-################################################################################
-
-struct HomogeneousPolynomialIterator{T,N,I}
-    monomials::Vector{NTuple{N,I}}
-    dense_partition::Vector{T}
-    sparse_partition::Vector{Pair{Int,T}}
-    sign_pattern::Array{UInt,0} # TODO: make sure this is enough?
-    function HomogeneousPolynomialIterator{T,N,I}(
-        weight::T, degree::I
-    ) where {T,N,I}
-        powers = integer_partitions(degree, N)
-        for p in powers
-            reverse!(p) # degrevlex order
-        end
-        monomials = NTuple{N,I}.(reverse!(powers))
-        dense_partition = zeros(T, length(monomials))
-        if length(dense_partition) > 0
-            @inbounds dense_partition[1] = weight
-            sparse_partition = [1 => weight]
-        else
-            sparse_partition = Pair{Int,T}[]
-        end
-        sign_pattern = fill(UInt(0))
-        return new(monomials, dense_partition,
-            sparse_partition, sign_pattern)
-    end
-end
-
-const HPI{T,N,I} = HomogeneousPolynomialIterator{T,N,I}
-
-function reset!(it::HPI{T,N,I}) where {T,N,I}
-    dense = it.dense_partition
-    sparse = it.sparse_partition
-    # note: reduce(+, ...) instead of sum(...) to preserve type
-    weight = reduce(+, dense)
-    fill!(dense, zero(T))
-    empty!(sparse)
-    if length(dense) > 0
-        @inbounds dense[1] = weight
-        push!(sparse, 1 => weight)
-    end
-    it.sign_pattern[] = UInt(0)
-    return it
-end
-
-################################################################################
-
-function append_polynomial!(poly::Polynomial{T,N,I},
-    it::HPI{T,N,I}) where {T,N,I}
-    s = it.sign_pattern[]
-    m = it.monomials
-    j = length(it.sparse_partition)
-    @inbounds for (i, c) in it.sparse_partition
-        j -= 1
-        push!(poly, m[i] => ifelse(iseven(s >> j), c, -c))
-    end
-    return poly
-end
-
-function incr_polynomial!(it::HPI{T,N,I}) where {T,N,I}
-    dense = it.dense_partition
-    sparse = it.sparse_partition
-    s = it.sign_pattern[] + 1
-    if s < (UInt(1) << length(sparse))
-        it.sign_pattern[] = s
-        return true
-    else
-        it.sign_pattern[] = UInt(0)
-        if !incr_partition!(dense)
-            return false
-        end
-        empty!(sparse)
-        for (i, c) in enumerate(dense)
-            if !iszero(c)
-                push!(sparse, i => c)
-            end
-        end
-        @assert length(sparse) < 8 * sizeof(UInt)
-        return true
-    end
-end
-
-function get_polynomial(iterators::Vector{HPI{T,N,I}}) where {T,N,I}
-    result = Monomial{T,N,I}[]
-    for it in iterators
-        append_polynomial!(result, it)
-    end
-    return result
-end
-
-function incr_polynomial!(iterators::Vector{HPI{T,N,I}}) where {T,N,I}
-    i = length(iterators)
-    @inbounds while true
-        if iszero(i)
-            return false
-        end
-        if incr_polynomial!(iterators[i])
-            return true
-        end
-        reset!(iterators[i])
-        i -= 1
-    end
 end
 
 ################################################################################
