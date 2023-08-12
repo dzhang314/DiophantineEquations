@@ -2,83 +2,104 @@ module DiophantinePolynomials
 
 ############################################################### TYPE DEFINITIONS
 
-export Term, Polynomial
+export DiophantinePolynomial
 
-const Term{N} = Tuple{Int,NTuple{N,Int}}
-const Polynomial{N} = Vector{Term{N}}
+struct DiophantinePolynomial{N}
+    terms::Vector{Tuple{Int,NTuple{N,Int}}}
+end
 
 #################################################### STRUCTURAL PROPERTY TESTING
 
 export has_constant_term, has_coprime_terms, has_linear_variable,
-    is_positive_semidefinite, is_negative_semidefinite
+    is_positive_definite, is_negative_definite
 
-function has_constant_term(p::Polynomial{N}) where {N}
-    return any(all(iszero.(m)) && !iszero(c) for (c, m) in p)
+function has_constant_term(p::DiophantinePolynomial{N}) where {N}
+    return any(all(iszero.(m)) && !iszero(c) for (c, m) in p.terms)
 end
 
-function term_gcd(p::Polynomial{N}) where {N}
+precompile(has_constant_term, (DiophantinePolynomial{1},))
+precompile(has_constant_term, (DiophantinePolynomial{2},))
+precompile(has_constant_term, (DiophantinePolynomial{3},))
+precompile(has_constant_term, (DiophantinePolynomial{4},))
+precompile(has_constant_term, (DiophantinePolynomial{5},))
+
+@inline function term_gcd(p::DiophantinePolynomial{N}) where {N}
     coefficient_gcd = 0
     exponent_gcd = ntuple(_ -> typemax(Int), Val{N}())
-    for (c, m) in p
+    for (c, m) in p.terms
         coefficient_gcd = gcd(coefficient_gcd, c)
         exponent_gcd = min.(exponent_gcd, m)
     end
     return (coefficient_gcd, exponent_gcd)
 end
 
-function has_coprime_terms(p::Polynomial{N}) where {N}
+function has_coprime_terms(p::DiophantinePolynomial{N}) where {N}
     (c, m) = term_gcd(p)
     return isone(c) && all(iszero.(m))
 end
 
-function has_linear_variable(p::Polynomial{N}, i::Int) where {N}
-    @inbounds (_, m) = p[i]
+precompile(has_coprime_terms, (DiophantinePolynomial{1},))
+precompile(has_coprime_terms, (DiophantinePolynomial{2},))
+precompile(has_coprime_terms, (DiophantinePolynomial{3},))
+precompile(has_coprime_terms, (DiophantinePolynomial{4},))
+precompile(has_coprime_terms, (DiophantinePolynomial{5},))
+
+@inline function has_linear_variable(
+    p::DiophantinePolynomial{N}, i::Int
+) where {N}
+    @inbounds (_, m) = p.terms[i]
     return all(
         all(iszero.(min.(m, n))) || (i == j)
-        for (j, (_, n)) in enumerate(p)
+        for (j, (_, n)) in enumerate(p.terms)
     )
 end
 
-function has_linear_variable(p::Polynomial{N}) where {N}
+function has_linear_variable(p::DiophantinePolynomial{N}) where {N}
     return any(
         any(isone.(m)) && has_linear_variable(p, i)
-        for (i, (_, m)) in enumerate(p)
+        for (i, (_, m)) in enumerate(p.terms)
     )
 end
 
-function is_positive_semidefinite(p::Polynomial{N}) where {N}
-    return all((c >= 0) && all(iseven, m) for (c, m) in p)
+precompile(has_linear_variable, (DiophantinePolynomial{1},))
+precompile(has_linear_variable, (DiophantinePolynomial{2},))
+precompile(has_linear_variable, (DiophantinePolynomial{3},))
+precompile(has_linear_variable, (DiophantinePolynomial{4},))
+precompile(has_linear_variable, (DiophantinePolynomial{5},))
+
+@inline function is_positive_semidefinite(
+    p::DiophantinePolynomial{N}
+) where {N}
+    return all((c >= 0) && all(iseven, m) for (c, m) in p.terms)
 end
 
-function is_negative_semidefinite(p::Polynomial{N}) where {N}
-    return all((c <= 0) && all(iseven, m) for (c, m) in p)
+function is_positive_definite(p::DiophantinePolynomial{N}) where {N}
+    return is_positive_semidefinite(p) && has_constant_term(p)
 end
 
-precompile(has_constant_term, (Polynomial{1},))
-precompile(has_constant_term, (Polynomial{2},))
-precompile(has_constant_term, (Polynomial{3},))
-precompile(has_constant_term, (Polynomial{4},))
-precompile(has_constant_term, (Polynomial{5},))
-precompile(has_coprime_terms, (Polynomial{1},))
-precompile(has_coprime_terms, (Polynomial{2},))
-precompile(has_coprime_terms, (Polynomial{3},))
-precompile(has_coprime_terms, (Polynomial{4},))
-precompile(has_coprime_terms, (Polynomial{5},))
-precompile(has_linear_variable, (Polynomial{1},))
-precompile(has_linear_variable, (Polynomial{2},))
-precompile(has_linear_variable, (Polynomial{3},))
-precompile(has_linear_variable, (Polynomial{4},))
-precompile(has_linear_variable, (Polynomial{5},))
-precompile(is_positive_semidefinite, (Polynomial{1},))
-precompile(is_positive_semidefinite, (Polynomial{2},))
-precompile(is_positive_semidefinite, (Polynomial{3},))
-precompile(is_positive_semidefinite, (Polynomial{4},))
-precompile(is_positive_semidefinite, (Polynomial{5},))
-precompile(is_negative_semidefinite, (Polynomial{1},))
-precompile(is_negative_semidefinite, (Polynomial{2},))
-precompile(is_negative_semidefinite, (Polynomial{3},))
-precompile(is_negative_semidefinite, (Polynomial{4},))
-precompile(is_negative_semidefinite, (Polynomial{5},))
+precompile(is_positive_definite, (DiophantinePolynomial{1},))
+precompile(is_positive_definite, (DiophantinePolynomial{2},))
+precompile(is_positive_definite, (DiophantinePolynomial{3},))
+precompile(is_positive_definite, (DiophantinePolynomial{4},))
+precompile(is_positive_definite, (DiophantinePolynomial{5},))
+
+@inline function is_negative_semidefinite(
+    p::DiophantinePolynomial{N}
+) where {N}
+    return all((c <= 0) && all(iseven, m) for (c, m) in p.terms)
+end
+
+function is_negative_definite(p::DiophantinePolynomial{N}) where {N}
+    return is_negative_semidefinite(p) && has_constant_term(p)
+end
+
+precompile(is_negative_definite, (DiophantinePolynomial{1},))
+precompile(is_negative_definite, (DiophantinePolynomial{2},))
+precompile(is_negative_definite, (DiophantinePolynomial{3},))
+precompile(is_negative_definite, (DiophantinePolynomial{4},))
+precompile(is_negative_definite, (DiophantinePolynomial{5},))
+
+#=
 
 ######################################################################## PARSING
 
@@ -475,5 +496,7 @@ precompile(has_root_modulo, (Polynomial{4}, Val{5}))
 precompile(has_root_modulo, (Polynomial{5}, Val{5}))
 
 ################################################################################
+
+=#
 
 end # module DiophantinePolynomials
