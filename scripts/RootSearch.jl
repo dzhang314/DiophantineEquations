@@ -105,6 +105,9 @@ end
 
 function main(::Val{N}, path::String, radius::T) where {N,T}
 
+    println("Reading file ", path, "...")
+    flush(stdout)
+
     unsolved = Pair{Int,DiophantinePolynomial{N}}[]
     lines = readlines(path)
     for (i, line) in enumerate(lines)
@@ -113,9 +116,10 @@ function main(::Val{N}, path::String, radius::T) where {N,T}
         end
     end
 
-    println("Reading file ", path, "...")
     println("Read ", length(lines), " lines.")
     println("Loaded ", length(unsolved), " unsolved equations.")
+    flush(stdout)
+
     if isempty(unsolved)
         return nothing
     end
