@@ -262,7 +262,7 @@ function DiophantinePolynomial{N}(s::Base.CodeUnits) where {N}
     return DiophantinePolynomial{N}(terms)
 end
 
-DiophantinePolynomial{N}(s::String) where {N} =
+DiophantinePolynomial{N}(s::AbstractString) where {N} =
     DiophantinePolynomial{N}(codeunits(s))
 
 precompile(DiophantinePolynomial{1}, (String,))

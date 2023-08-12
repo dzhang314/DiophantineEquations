@@ -3,7 +3,7 @@ push!(LOAD_PATH, @__DIR__)
 using DiophantinePolynomials
 
 
-function incr_partition!(x::Vector{T}) where {T}
+function next_partition!(x::Vector{T}) where {T}
     _one = one(T)
     @inbounds begin
         n = length(x)
@@ -37,34 +37,34 @@ function incr_partition!(x::Vector{T}) where {T}
 end
 
 
-struct SignedPartitionIterator{T}
-    dense_partition::Vector{T}
-    sparse_partition::Vector{Pair{Int,T}}
+struct L1BallIterator{T}
+    dense_point::Vector{T}
+    sparse_point::Vector{Pair{Int,T}}
     sign_pattern::Array{UInt,0}
-    function SignedPartitionIterator(n::T, len::Int) where {T}
-        dense_partition = zeros(T, len)
-        if n > 0 && len > 0
-            @inbounds dense_partition[1] = n
-            sparse_partition = [1 => n]
+    function L1BallIterator(n::T, len::Int) where {T}
+        dense_point = zeros(T, len)
+        if (n > 0) && (len > 0)
+            @inbounds dense_point[1] = n
+            sparse_point = [1 => n]
         else
-            sparse_partition = Pair{Int,Int}[]
+            sparse_point = Pair{Int,Int}[]
         end
         sign_pattern = fill(UInt(0))
-        return new{T}(dense_partition, sparse_partition, sign_pattern)
+        return new{T}(dense_point, sparse_point, sign_pattern)
     end
 end
 
 
-function step!(it::SignedPartitionIterator{T}) where {T}
-    dense = it.dense_partition
-    sparse = it.sparse_partition
+function step!(it::L1BallIterator{T}) where {T}
+    dense = it.dense_point
+    sparse = it.sparse_point
     s = it.sign_pattern[] + 1
     if s < (UInt(1) << length(sparse))
         it.sign_pattern[] = s
         return true
     else
         it.sign_pattern[] = UInt(0)
-        if !incr_partition!(dense)
+        if !next_partition!(dense)
             return false
         end
         empty!(sparse)
@@ -79,11 +79,11 @@ function step!(it::SignedPartitionIterator{T}) where {T}
 end
 
 
-function get_partition(::Val{N}, it::SignedPartitionIterator{T}) where {N,T}
+function get_point(::Val{N}, it::L1BallIterator{T}) where {N,T}
     result = ntuple(_ -> zero(T), Val{N}())
     s = it.sign_pattern[]
-    @inbounds for (i, c) in it.sparse_partition
-        result = Base.setindex(result, ifelse(iseven(s), c, -c), i)
+    for (i, c) in it.sparse_point
+        result = Base.setindex(result, ifelse(isodd(s), -c, +c), i)
         s >>= 1
     end
     return result
@@ -92,9 +92,9 @@ end
 
 function l1_ball(::Val{N}, radius::T) where {N,T}
     result = NTuple{N,T}[]
-    it = SignedPartitionIterator(radius, N)
+    it = L1BallIterator(radius, N)
     while true
-        push!(result, get_partition(Val{N}(), it))
+        push!(result, get_point(Val{N}(), it))
         if !step!(it)
             break
         end
@@ -105,17 +105,20 @@ end
 
 function main(::Val{N}, path::String, radius::T) where {N,T}
 
-    unsolved = Pair{Int,Polynomial{N}}[]
+    unsolved = Pair{Int,DiophantinePolynomial{N}}[]
     lines = readlines(path)
     for (i, line) in enumerate(lines)
         if !(':' in line)
-            push!(unsolved, i => parse_polynomial(Val{N}(), line))
+            push!(unsolved, i => DiophantinePolynomial{N}(line))
         end
     end
 
     println("Reading file ", path, "...")
     println("Read ", length(lines), " lines.")
     println("Loaded ", length(unsolved), " unsolved equations.")
+    if isempty(unsolved)
+        return nothing
+    end
 
     for k = zero(T):radius
         ball = l1_ball(Val{N}(), k)
@@ -128,6 +131,9 @@ function main(::Val{N}, path::String, radius::T) where {N,T}
             end
         end
         deleteat!(unsolved, to_delete)
+        if isempty(unsolved)
+            break
+        end
     end
 
     println(length(unsolved), " unsolved equations remain.")
