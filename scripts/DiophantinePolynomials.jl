@@ -228,6 +228,8 @@ precompile(load_polynomials, (Val{5}, Vector{String}))
 
 ################################################################################
 
+export to_string, to_latex
+
 import LaTeXStrings: LaTeXString
 
 const CANONICAL_VARIABLES = Dict{Int,Vector{String}}(
@@ -260,6 +262,31 @@ const CANONICAL_VARIABLES = Dict{Int,Vector{String}}(
     26 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
 )
 
+function to_string(c::Int, m::NTuple{N,Int}) where {N}
+    if all(iszero.(m))
+        return string(c)
+    end
+    vars = CANONICAL_VARIABLES[N]
+    result = String[]
+    if isone(c)
+        # do nothing
+    elseif isone(-c)
+        push!(result, "-")
+    else
+        push!(result, string(c))
+    end
+    for (i, n) in enumerate(m)
+        if isone(n)
+            push!(result, vars[i])
+        elseif !iszero(n)
+            push!(result, vars[i])
+            push!(result, "^")
+            push!(result, string(n))
+        end
+    end
+    return join(result)
+end
+
 function to_latex(c::Int, m::NTuple{N,Int}) where {N}
     if all(iszero.(m))
         return string(c)
@@ -289,6 +316,30 @@ function to_latex(c::Int, m::NTuple{N,Int}) where {N}
         end
     end
     return join(result)
+end
+
+function to_string(p::Polynomial{N}) where {N}
+    result = String[]
+    for (c, m) in p
+        if !iszero(c)
+            if isempty(result)
+                push!(result, to_string(c, m))
+            else
+                if signbit(c)
+                    push!(result, " - ")
+                    push!(result, to_string(-c, m))
+                else
+                    push!(result, " + ")
+                    push!(result, to_string(+c, m))
+                end
+            end
+        end
+    end
+    if isempty(result)
+        return string(zero(T))
+    else
+        return join(result)
+    end
 end
 
 function to_latex(p::Polynomial{N}) where {N}
@@ -327,7 +378,7 @@ precompile(LaTeXString, (Polynomial{5},))
 
 ################################################################################
 
-export evaluate
+export evaluate, find_root
 
 @inline function evaluate(p::Polynomial{N}, x::NTuple{N,T}) where {N,T}
     result = zero(T)
@@ -335,6 +386,15 @@ export evaluate
         result += *(T(c), Base.power_by_squaring.(x, m)...)
     end
     return result
+end
+
+function find_root(p::Polynomial{N}, points::Vector{NTuple{N,T}}) where {N,T}
+    for x in points
+        if iszero(evaluate(p, x)) && iszero(evaluate(p, BigInt.(x)))
+            return x
+        end
+    end
+    return nothing
 end
 
 ################################################################################
@@ -388,8 +448,8 @@ end
 precompile(has_small_root, (Polynomial{1},))
 precompile(has_small_root, (Polynomial{2},))
 precompile(has_small_root, (Polynomial{3},))
-precompile(has_small_root, (Polynomial{4},))
-precompile(has_small_root, (Polynomial{5},))
+# precompile(has_small_root, (Polynomial{4},))
+# precompile(has_small_root, (Polynomial{5},))
 
 ################################################################################
 
@@ -502,14 +562,111 @@ end
 precompile(load_nontrivial_polynomials, (Val{1}, String))
 precompile(load_nontrivial_polynomials, (Val{2}, String))
 precompile(load_nontrivial_polynomials, (Val{3}, String))
-precompile(load_nontrivial_polynomials, (Val{4}, String))
-precompile(load_nontrivial_polynomials, (Val{5}, String))
+# precompile(load_nontrivial_polynomials, (Val{4}, String))
+# precompile(load_nontrivial_polynomials, (Val{5}, String))
 precompile(load_nontrivial_polynomials, (Val{1}, Vector{String}))
 precompile(load_nontrivial_polynomials, (Val{2}, Vector{String}))
 precompile(load_nontrivial_polynomials, (Val{3}, Vector{String}))
-precompile(load_nontrivial_polynomials, (Val{4}, Vector{String}))
-precompile(load_nontrivial_polynomials, (Val{5}, Vector{String}))
+# precompile(load_nontrivial_polynomials, (Val{4}, Vector{String}))
+# precompile(load_nontrivial_polynomials, (Val{5}, Vector{String}))
 
+################################################################################
 
+export l1_ball
+
+function incr_partition!(x::Vector{T}) where {T}
+    _one = one(T)
+    @inbounds begin
+        n = length(x)
+        if n <= 1
+            return false
+        end
+        xn = x[n]
+        xn1 = x[n-1]
+        if !iszero(xn1)
+            x[n-1] = xn1 - _one
+            x[n] = xn + _one
+            return true
+        end
+        i = n - 2
+        while !iszero(i)
+            xi = x[i]
+            if !iszero(xi)
+                x[i] = xi - _one
+                if iszero(xn)
+                    x[i+1] += _one
+                else
+                    x[i+1] += xn + _one
+                    x[n] = zero(T)
+                end
+                return true
+            end
+            i -= 1
+        end
+        return false
+    end
+end
+
+struct SignedPartitionIterator{T}
+    dense_partition::Vector{T}
+    sparse_partition::Vector{Pair{Int,T}}
+    sign_pattern::Array{UInt,0}
+    function SignedPartitionIterator(n::T, len::Int) where {T}
+        dense_partition = zeros(T, len)
+        if n > 0 && len > 0
+            @inbounds dense_partition[1] = n
+            sparse_partition = [1 => n]
+        else
+            sparse_partition = Pair{Int,Int}[]
+        end
+        sign_pattern = fill(UInt(0))
+        return new{T}(dense_partition, sparse_partition, sign_pattern)
+    end
+end
+
+function incr_partition!(it::SignedPartitionIterator{T}) where {T}
+    dense = it.dense_partition
+    sparse = it.sparse_partition
+    s = it.sign_pattern[] + 1
+    if s < (UInt(1) << length(sparse))
+        it.sign_pattern[] = s
+        return true
+    else
+        it.sign_pattern[] = UInt(0)
+        if !incr_partition!(dense)
+            return false
+        end
+        empty!(sparse)
+        for (i, c) in enumerate(dense)
+            if !iszero(c)
+                push!(sparse, i => c)
+            end
+        end
+        @assert length(sparse) < 8 * sizeof(UInt)
+        return true
+    end
+end
+
+function get_partition(::Val{N}, it::SignedPartitionIterator{T}) where {N,T}
+    result = ntuple(_ -> zero(T), Val{N}())
+    s = it.sign_pattern[]
+    @inbounds for (i, c) in it.sparse_partition
+        result = Base.setindex(result, ifelse(iseven(s), c, -c), i)
+        s >>= 1
+    end
+    return result
+end
+
+function l1_ball(::Val{N}, radius::T) where {N,T}
+    result = NTuple{N,T}[]
+    it = SignedPartitionIterator(radius, N)
+    while true
+        push!(result, get_partition(Val{N}(), it))
+        if !incr_partition!(it)
+            break
+        end
+    end
+    return result
+end
 
 end # module DiophantinePolynomials
