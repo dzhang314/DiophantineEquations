@@ -130,7 +130,7 @@ function main(::Val{N}, path::String, radius::T) where {N,T}
         for (j, (i, p)) in enumerate(unsolved)
             root = find_root(p, ball)
             if !isnothing(root)
-                lines[i] = "$(to_string(p)) : $(root)"
+                lines[i] = "$(p) : $(root)"
                 push!(to_delete, j)
             end
         end

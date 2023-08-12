@@ -75,10 +75,10 @@ function main(::Val{N}, path::String, radius::UInt32) where {N}
         to_delete = Int[]
         for (j, (i, p)) in enumerate(unsolved)
             if is_positive_definite(p)
-                lines[i] = "$(to_string(p)) : positive-definite"
+                lines[i] = "$(p) : positive-definite"
                 push!(to_delete, j)
             elseif is_negative_definite(p)
-                lines[i] = "$(to_string(p)) : negative-definite"
+                lines[i] = "$(p) : negative-definite"
                 push!(to_delete, j)
             end
         end
@@ -89,7 +89,7 @@ function main(::Val{N}, path::String, radius::UInt32) where {N}
         to_delete = Int[]
         for (j, (i, p)) in enumerate(unsolved)
             if !has_root_modulo(p, k, UInt64)
-                lines[i] = "$(to_string(p)) : modulus $(k)"
+                lines[i] = "$(p) : modulus $(k)"
                 push!(to_delete, j)
             end
         end
