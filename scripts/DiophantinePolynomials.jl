@@ -8,6 +8,30 @@ struct DiophantinePolynomial{N}
     terms::Vector{Tuple{Int,NTuple{N,Int}}}
 end
 
+##################################################################### EVALUATION
+
+export find_root
+
+@inline function (p::DiophantinePolynomial{N})(x::NTuple{N,T}) where {N,T}
+    result = zero(T)
+    for (c, m) in p.terms
+        result += *(c % T, Base.power_by_squaring.(x, m)...)
+    end
+    return result
+end
+
+function find_root(
+    p::DiophantinePolynomial{N},
+    points::Vector{NTuple{N,T}}
+) where {N,T}
+    for x in points
+        if iszero(p(x)) && iszero(p(BigInt.(x)))
+            return x
+        end
+    end
+    return nothing
+end
+
 #################################################### STRUCTURAL PROPERTY TESTING
 
 export has_constant_term, has_coprime_terms, has_linear_variable,
@@ -99,341 +123,240 @@ precompile(is_negative_definite, (DiophantinePolynomial{3},))
 precompile(is_negative_definite, (DiophantinePolynomial{4},))
 precompile(is_negative_definite, (DiophantinePolynomial{5},))
 
-#=
-
 ######################################################################## PARSING
 
-export parse_polynomial, load_polynomials
+@inline is_ascii_digit(c::UInt8) = (UInt8('0') <= c <= UInt8('9'))
+@inline is_ascii_letter(c::UInt8) = (UInt8('a') <= c <= UInt8('z'))
+@inline is_ascii_sign(c::UInt8) = (c == UInt8('+')) | (c == UInt8('-'))
+@inline is_ascii_space(c::UInt8) = (c == UInt8(' ')) | (0x09 <= c <= 0x0D)
+@inline is_ignored(c::UInt8) = is_ascii_space(c) | (c == UInt8('*'))
 
-@inline is_digit(char::UInt8) = (UInt8('0') <= char <= UInt8('9'))
-@inline is_letter(char::UInt8) = (UInt8('a') <= char <= UInt8('z'))
-@inline is_sign(char::UInt8) = (char == UInt8('+')) | (char == UInt8('-'))
-@inline is_space(char::UInt8) = (char == UInt8(' ')) | (0x09 <= char <= 0x0D)
-
-function parse_integer(str::Array{UInt8}, i::Int, j::Int)
+function parse_integer_unsafe(s::Base.CodeUnits, i::Int, j::Int)
     result = 0
     @simd for k = i:j
-        @inbounds result = 10 * result + Int(str[k] - UInt8('0'))
+        @inbounds result = 10 * result + Int(s[k] - UInt8('0'))
     end
     return result
 end
 
-function parse_coefficient(poly_str::Array{UInt8}, i::Int)
-    n = length(poly_str)
+function parse_coefficient(s::Base.CodeUnits, i::Int)
+    n = length(s)
+    while (i <= n) && is_ignored(@inbounds s[i])
+        i += 1
+    end
     j = i
-    while (1 <= j <= n) && is_digit(@inbounds poly_str[j])
+    while (j <= n) && is_ascii_digit(@inbounds s[j])
         j += 1
     end
-    if i == j
-        return (j, 1)
+    if i < j
+        return (j, parse_integer_unsafe(s, i, j - 1))
     else
-        return (j, parse_integer(poly_str, i, j - 1))
+        return (j, 1)
     end
 end
 
-function parse_exponent(poly_str::Array{UInt8}, i::Int)
-    n = length(poly_str)
+function parse_exponent(s::Base.CodeUnits, i::Int)
+    n = length(s)
+    while (i <= n) && is_ignored(@inbounds s[i])
+        i += 1
+    end
     j = i
-    while (1 <= j <= n) && is_digit(@inbounds poly_str[j])
+    while (j <= n) && is_ascii_digit(@inbounds s[j])
         j += 1
     end
     @assert i < j
-    return (j, parse_integer(poly_str, i, j - 1))
+    return (j, parse_integer_unsafe(s, i, j - 1))
 end
 
-function parse_power(::Val{N}, poly_str::Array{UInt8}, i::Int) where {N}
-    @assert 1 <= N <= 26
-    n = length(poly_str)
-    @assert 1 <= i <= n
-    @inbounds var = poly_str[i]
-    if N <= 3
-        @assert UInt8('x') <= var <= UInt8('x') + UInt8(N - 1)
+function parse_power(::Val{N}, s::Base.CodeUnits, i::Int) where {N}
+    n = length(s)
+    @inbounds variable = s[i]
+    if 1 <= N <= 3
+        @assert UInt8('x') <= variable <= UInt8('x') + UInt8(N - 1)
     else
-        @assert UInt8('a') <= var <= UInt8('a') + UInt8(N - 1)
+        @assert 1 <= N <= 26
+        @assert UInt8('a') <= variable <= UInt8('a') + UInt8(N - 1)
     end
-    var_index = Int(var - UInt8((N <= 3) ? 'x' : 'a')) + 1
-    if 1 <= i + 1 <= n
-        @inbounds caret = poly_str[i+1]
+    variable_index = Int(variable - UInt8((1 <= N <= 3) ? 'x' : 'a')) + 1
+    i += 1
+    while (i <= n) && is_ignored(@inbounds s[i])
+        i += 1
+    end
+    if i <= n
+        @inbounds caret = s[i]
         if caret == UInt8('^')
-            (j, exponent) = parse_exponent(poly_str, i + 2)
-            return (j, var_index, exponent)
+            (j, exponent) = parse_exponent(s, i + 1)
+            return (j, variable_index, exponent)
         end
     end
-    return (i + 1, var_index, 1)
+    return (i, variable_index, 1)
 end
 
-function parse_term(::Val{N}, poly_str::Array{UInt8}, i::Int) where {N}
-    n = length(poly_str)
-    (i, coefficient) = parse_coefficient(poly_str, i)
+function parse_term(::Val{N}, s::Base.CodeUnits, i::Int) where {N}
+    n = length(s)
+    (i, coefficient) = parse_coefficient(s, i)
     exponents = ntuple(_ -> 0, Val{N}())
-    while 1 <= i <= n && is_letter(@inbounds poly_str[i])
-        (i, index, exponent) = parse_power(Val{N}(), poly_str, i)
+    while true
+        while (i <= n) && is_ignored(@inbounds s[i])
+            i += 1
+        end
+        if (i > n) || !is_ascii_letter(@inbounds s[i])
+            break
+        end
+        (i, variable_index, exponent) = parse_power(Val{N}(), s, i)
         @inbounds exponents = Base.setindex(
             exponents,
-            exponents[index] + exponent,
-            index
+            exponents[variable_index] + exponent,
+            variable_index
         )
     end
     return (i, coefficient, exponents)
 end
 
-function parse_polynomial(::Val{N}, poly_str::Array{UInt8}, i::Int) where {N}
-    n = length(poly_str)
+function count_terms(s::Base.CodeUnits)
     term_count = 0
-    for c in poly_str
-        if is_sign(c)
+    for c in s
+        if is_ascii_sign(c)
             term_count += 1
         end
     end
-    if 1 <= i <= n
-        @inbounds first_char = poly_str[i]
-        if !is_sign(first_char)
-            term_count += 1
-        end
+    n = length(s)
+    i = 1
+    while (i <= n) && is_ignored(@inbounds s[i])
+        i += 1
     end
-    result = Polynomial{N}(undef, term_count)
+    if (i <= n) && !is_ascii_sign(@inbounds s[i])
+        term_count += 1
+    end
+    return term_count
+end
+
+function DiophantinePolynomial{N}(s::Base.CodeUnits) where {N}
+    n = length(s)
+    terms = Vector{Tuple{Int,NTuple{N,Int}}}(undef, count_terms(s))
+    i = 1
     k = 0
-    while 1 <= i <= n
-        @inbounds next_char = poly_str[i]
+    while true
+        while (i <= n) && is_ignored(@inbounds s[i])
+            i += 1
+        end
+        if i > n
+            break
+        end
+        @inbounds next_char = s[i]
         if next_char == UInt8('-')
             @assert 1 <= i + 1 <= n
-            (i, coefficient, exponents) = parse_term(Val{N}(), poly_str, i + 1)
-            result[k+=1] = (-coefficient, exponents)
+            (i, coefficient, exponents) = parse_term(Val{N}(), s, i + 1)
+            @inbounds terms[k+=1] = (-coefficient, exponents)
         elseif next_char == UInt8('+')
             @assert 1 <= i + 1 <= n
-            (i, coefficient, exponents) = parse_term(Val{N}(), poly_str, i + 1)
-            result[k+=1] = (+coefficient, exponents)
+            (i, coefficient, exponents) = parse_term(Val{N}(), s, i + 1)
+            @inbounds terms[k+=1] = (+coefficient, exponents)
         else
-            @assert is_digit(next_char) || is_letter(next_char)
-            (i, coefficient, exponents) = parse_term(Val{N}(), poly_str, i)
-            result[k+=1] = (coefficient, exponents)
+            @assert k == 0
+            @assert is_ascii_digit(next_char) || is_ascii_letter(next_char)
+            (i, coefficient, exponents) = parse_term(Val{N}(), s, i)
+            @inbounds terms[k+=1] = (coefficient, exponents)
         end
     end
-    return result
+    return DiophantinePolynomial{N}(terms)
 end
 
-function parse_polynomial(::Val{N}, str::String) where {N}
-    poly_str = Array{UInt8}(str)
-    deleteat!(poly_str, is_space.(poly_str))
-    return parse_polynomial(Val{N}(), poly_str, 1)
-end
+DiophantinePolynomial{N}(s::String) where {N} =
+    DiophantinePolynomial{N}(codeunits(s))
 
-function load_polynomials(::Val{N}, path::String) where {N}
-    result = Polynomial{N}[]
-    for line in eachline(path)
-        push!(result, parse_polynomial(Val{N}(), line))
-    end
-    return result
-end
+precompile(DiophantinePolynomial{1}, (String,))
+precompile(DiophantinePolynomial{2}, (String,))
+precompile(DiophantinePolynomial{3}, (String,))
+precompile(DiophantinePolynomial{4}, (String,))
+precompile(DiophantinePolynomial{5}, (String,))
 
-function load_polynomials(::Val{N}, paths::Vector{String}) where {N}
-    result = Polynomial{N}[]
-    for path in paths
-        for line in eachline(path)
-            push!(result, parse_polynomial(Val{N}(), line))
-        end
-    end
-    return result
-end
+####################################################################### PRINTING
 
-precompile(parse_polynomial, (Val{1}, String))
-precompile(parse_polynomial, (Val{2}, String))
-precompile(parse_polynomial, (Val{3}, String))
-precompile(parse_polynomial, (Val{4}, String))
-precompile(parse_polynomial, (Val{5}, String))
-precompile(load_polynomials, (Val{1}, String))
-precompile(load_polynomials, (Val{2}, String))
-precompile(load_polynomials, (Val{3}, String))
-precompile(load_polynomials, (Val{4}, String))
-precompile(load_polynomials, (Val{5}, String))
-precompile(load_polynomials, (Val{1}, Vector{String}))
-precompile(load_polynomials, (Val{2}, Vector{String}))
-precompile(load_polynomials, (Val{3}, Vector{String}))
-precompile(load_polynomials, (Val{4}, Vector{String}))
-precompile(load_polynomials, (Val{5}, Vector{String}))
-
-################################################################################
-
-export to_string, to_latex
-
-import LaTeXStrings: LaTeXString
-
-const CANONICAL_VARIABLES = Dict{Int,Vector{String}}(
-    0 => [],
-    1 => ["x"],
-    2 => ["x", "y"],
-    3 => ["x", "y", "z"],
-    4 => ["a", "b", "c", "d"],
-    5 => ["a", "b", "c", "d", "e"],
-    6 => ["a", "b", "c", "d", "e", "f"],
-    7 => ["a", "b", "c", "d", "e", "f", "g"],
-    8 => ["a", "b", "c", "d", "e", "f", "g", "h"],
-    9 => ["a", "b", "c", "d", "e", "f", "g", "h", "i"],
-    10 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"],
-    11 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"],
-    12 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"],
-    13 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m"],
-    14 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"],
-    15 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o"],
-    16 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p"],
-    17 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q"],
-    18 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r"],
-    19 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s"],
-    20 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t"],
-    21 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u"],
-    22 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v"],
-    23 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w"],
-    24 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x"],
-    25 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y"],
-    26 => ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
-)
-
-function to_string(c::Int, m::NTuple{N,Int}) where {N}
-    if all(iszero.(m))
-        return string(c)
-    end
-    vars = CANONICAL_VARIABLES[N]
-    result = String[]
-    if isone(c)
-        # do nothing
-    elseif isone(-c)
-        push!(result, "-")
+function print_variable(io::IO, ::Val{N}, i::Int) where {N}
+    if 1 <= N <= 3
+        print(io, 'x' + (i - 1))
     else
-        push!(result, string(c))
+        @assert 1 <= N <= 26
+        print(io, 'a' + (i - 1))
     end
-    for (i, n) in enumerate(m)
-        if isone(n)
-            push!(result, vars[i])
-        elseif !iszero(n)
-            push!(result, vars[i])
-            push!(result, "^")
-            push!(result, string(n))
-        end
-    end
-    return join(result)
+    return nothing
 end
 
-function to_latex(c::Int, m::NTuple{N,Int}) where {N}
-    if all(iszero.(m))
-        return string(c)
-    end
-    vars = CANONICAL_VARIABLES[N]
-    result = String[]
-    if isone(c)
-        # do nothing
-    elseif isone(-c)
-        push!(result, "-")
+function print_term(
+    io::IO, coefficient::Int, exponents::NTuple{N,Int};
+    stars::Bool
+) where {N}
+    if all(iszero.(exponents))
+        print(io, coefficient)
     else
-        push!(result, string(c))
-    end
-    for (i, n) in enumerate(m)
-        if isone(n)
-            push!(result, vars[i])
-        elseif !iszero(n)
-            push!(result, vars[i])
-            push!(result, "^")
-            if 0 <= n <= 9
-                push!(result, string(n))
-            else
-                push!(result, "{")
-                push!(result, string(n))
-                push!(result, "}")
-            end
+        needs_star = false
+        if isone(-coefficient)
+            print(io, '-')
+        elseif !isone(coefficient)
+            print(io, coefficient)
+            needs_star = true
         end
-    end
-    return join(result)
-end
-
-function to_string(p::Polynomial{N}) where {N}
-    result = String[]
-    for (c, m) in p
-        if !iszero(c)
-            if isempty(result)
-                push!(result, to_string(c, m))
-            else
-                if signbit(c)
-                    push!(result, " - ")
-                    push!(result, to_string(-c, m))
-                else
-                    push!(result, " + ")
-                    push!(result, to_string(+c, m))
+        for (i, exponent) in enumerate(exponents)
+            if isone(exponent)
+                if stars && needs_star
+                    print(io, '*')
                 end
-            end
-        end
-    end
-    if isempty(result)
-        return string(zero(T))
-    else
-        return join(result)
-    end
-end
-
-function to_latex(p::Polynomial{N}) where {N}
-    result = ["\$"]
-    for (c, m) in p
-        if !iszero(c)
-            if length(result) == 1
-                push!(result, to_latex(c, m))
-            else
-                if signbit(c)
-                    push!(result, " - ")
-                    push!(result, to_latex(-c, m))
-                else
-                    push!(result, " + ")
-                    push!(result, to_latex(+c, m))
+                print_variable(io, Val{N}(), i)
+                needs_star = true
+            elseif !iszero(exponent)
+                if stars && needs_star
+                    print(io, '*')
                 end
+                print_variable(io, Val{N}(), i)
+                print(io, '^')
+                print(io, exponent)
+                needs_star = true
             end
-        end
-    end
-    if length(result) == 1
-        push!(result, "0")
-    end
-    push!(result, "\$")
-    return join(result)
-end
-
-function LaTeXString(p::Polynomial{N}) where {N}
-    return LaTeXString(to_latex(p))
-end
-
-precompile(to_string, (Polynomial{1},))
-precompile(to_string, (Polynomial{2},))
-precompile(to_string, (Polynomial{3},))
-precompile(to_string, (Polynomial{4},))
-precompile(to_string, (Polynomial{5},))
-precompile(to_latex, (Polynomial{1},))
-precompile(to_latex, (Polynomial{2},))
-precompile(to_latex, (Polynomial{3},))
-precompile(to_latex, (Polynomial{4},))
-precompile(to_latex, (Polynomial{5},))
-precompile(LaTeXString, (Polynomial{1},))
-precompile(LaTeXString, (Polynomial{2},))
-precompile(LaTeXString, (Polynomial{3},))
-precompile(LaTeXString, (Polynomial{4},))
-precompile(LaTeXString, (Polynomial{5},))
-
-################################################################################
-
-export evaluate, find_root
-
-@inline function evaluate(p::Polynomial{N}, x::NTuple{N,T}) where {N,T}
-    result = zero(T)
-    for (c, m) in p
-        result += *(T(c), Base.power_by_squaring.(x, m)...)
-    end
-    return result
-end
-
-function find_root(p::Polynomial{N}, points::Vector{NTuple{N,T}}) where {N,T}
-    for x in points
-        if iszero(evaluate(p, x)) && iszero(evaluate(p, BigInt.(x)))
-            return x
         end
     end
     return nothing
 end
 
+function Base.print(
+    io::IO, p::DiophantinePolynomial{N};
+    stars::Bool=false
+) where {N}
+    first_term = true
+    for (c, m) in p.terms
+        if !iszero(c)
+            if first_term
+                print_term(io, c, m; stars=stars)
+            else
+                if signbit(c)
+                    print(io, " - ")
+                    print_term(io, -c, m; stars=stars)
+                else
+                    print(io, " + ")
+                    print_term(io, +c, m; stars=stars)
+                end
+            end
+            first_term = false
+        end
+    end
+    if first_term
+        print(io, '0')
+    end
+    return nothing
+end
+
+function Base.show(io::IO, p::DiophantinePolynomial{N}) where {N}
+    print(io, "DiophantinePolynomial{")
+    print(io, N)
+    print(io, "}(\"")
+    print(io, p; stars=true)
+    print(io, "\")")
+    return nothing
+end
+
 ################################################################################
+
+#=
 
 export has_root_modulo
 
@@ -494,8 +417,6 @@ precompile(has_root_modulo, (Polynomial{2}, Val{5}))
 precompile(has_root_modulo, (Polynomial{3}, Val{5}))
 precompile(has_root_modulo, (Polynomial{4}, Val{5}))
 precompile(has_root_modulo, (Polynomial{5}, Val{5}))
-
-################################################################################
 
 =#
 
