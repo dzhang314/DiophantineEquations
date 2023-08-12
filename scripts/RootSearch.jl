@@ -104,26 +104,42 @@ end
 
 
 function main(::Val{N}, path::String, radius::T) where {N,T}
-    polys = load_polynomials(Val{N}(), path)
+
+    unsolved = Pair{Int,Polynomial{N}}[]
+    lines = readlines(path)
+    for (i, line) in enumerate(lines)
+        if !(':' in line)
+            push!(unsolved, i => parse_polynomial(Val{N}(), line))
+        end
+    end
+
+    println("Reading file ", path, "...")
+    println("Read ", length(lines), " lines.")
+    println("Loaded ", length(unsolved), " unsolved equations.")
+
     for k = zero(T):radius
         ball = l1_ball(Val{N}(), k)
         to_delete = Int[]
-        for (i, p) in enumerate(polys)
+        for (j, (i, p)) in enumerate(unsolved)
             root = find_root(p, ball)
             if !isnothing(root)
-                println(to_string(p), " : ", root)
-                flush(stdout)
-                push!(to_delete, i)
+                lines[i] = "$(to_string(p)) : $(root)"
+                push!(to_delete, j)
             end
         end
-        deleteat!(polys, to_delete)
-        if isempty(polys)
-            break
-        end
+        deleteat!(unsolved, to_delete)
     end
-    for p in polys
-        println(to_string(p))
+
+    println(length(unsolved), " unsolved equations remain.")
+
+    temp_path, io = mktemp()
+    for line in lines
+        println(io, line)
     end
+
+    mv(temp_path, path; force=true)
+    return nothing
+
 end
 
 
