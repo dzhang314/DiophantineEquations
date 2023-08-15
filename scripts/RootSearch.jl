@@ -1,6 +1,12 @@
 #!/usr/bin/env julia
+
+using Primes: factor
+
 push!(LOAD_PATH, @__DIR__)
 using DiophantinePolynomials
+
+
+################################################################################
 
 
 function structure_search!(
@@ -20,6 +26,9 @@ function structure_search!(
     deleteat!(unsolved, to_delete)
     return nothing
 end
+
+
+################################################################################
 
 
 function next_partition!(x::Vector{T}) where {T}
@@ -141,6 +150,9 @@ function root_search!(
 end
 
 
+################################################################################
+
+
 struct ModularInteger{T,U} <: Number
     value::T
     modulus::T
@@ -207,6 +219,9 @@ function modulus_search!(
 end
 
 
+################################################################################
+
+
 function write_atomic(lines::Vector{String}, path::String)
     temp_path, io = mktemp()
     for line in lines
@@ -216,7 +231,90 @@ function write_atomic(lines::Vector{String}, path::String)
 end
 
 
-function main(::Val{N}, path::String) where {N}
+function structural_step!(
+    lines::Vector{String},
+    unsolved::Vector{Pair{Int,DiophantinePolynomial{N}}},
+    path::String
+) where {N}
+    old_length = length(unsolved)
+    structure_search!(lines, unsolved)
+    new_length = length(unsolved)
+
+    println("Solved $(old_length - new_length) equations by structural analysis.")
+    println("$(new_length) unsolved equations remain.")
+    flush(stdout)
+
+    if old_length != new_length
+        write_atomic(lines, path)
+    end
+
+    if isempty(unsolved)
+        exit()
+    end
+
+    return nothing
+end
+
+
+function root_step!(
+    lines::Vector{String},
+    unsolved::Vector{Pair{Int,DiophantinePolynomial{N}}},
+    path::String,
+    k::Int
+) where {N}
+    old_length = length(unsolved)
+    ball_size = root_search!(lines, unsolved, k)
+    new_length = length(unsolved)
+
+    println("Solved $(old_length - new_length) equations at radius $(k).")
+    println("$(new_length) unsolved equations remain.")
+    flush(stdout)
+
+    if old_length != new_length
+        write_atomic(lines, path)
+    end
+
+    if isempty(unsolved)
+        exit()
+    end
+
+    return ball_size
+end
+
+
+function modulus_step!(
+    lines::Vector{String},
+    unsolved::Vector{Pair{Int,DiophantinePolynomial{N}}},
+    path::String,
+    k::Int
+) where {N}
+    old_length = length(unsolved)
+    modulus_search!(lines, unsolved, k)
+    new_length = length(unsolved)
+
+    println("Solved $(old_length - new_length) equations at modulus $(k).")
+    println("$(new_length) unsolved equations remain.")
+    flush(stdout)
+
+    if old_length != new_length
+        write_atomic(lines, path)
+    end
+
+    if isempty(unsolved)
+        exit()
+    end
+
+    return nothing
+end
+
+
+################################################################################
+
+
+function main(
+    ::Val{N}, path::String;
+    roots::Bool=true, modulus::Bool=true
+) where {N}
 
     println("Reading file ", path, "...")
     flush(stdout)
@@ -237,71 +335,37 @@ function main(::Val{N}, path::String) where {N}
         return nothing
     end
 
-    let
+    structural_step!(lines, unsolved, path)
 
-        old_length = length(unsolved)
-        structure_search!(lines, unsolved)
-        new_length = length(unsolved)
-
-        println("Solved $(old_length - new_length) equations by structural analysis.")
-        println("$(new_length) unsolved equations remain.")
-        flush(stdout)
-
-        if old_length != new_length
-            write_atomic(lines, path)
-        end
-
-        if isempty(unsolved)
-            return nothing
-        end
-
-    end
-
-    next_modulus = 2
-    for k = zero(Int):typemax(Int)
-
-        old_length = length(unsolved)
-        ball_size = root_search!(lines, unsolved, k)
-        new_length = length(unsolved)
-
-        println("Solved $(old_length - new_length) equations at radius $(k).")
-        println("$(new_length) unsolved equations remain.")
-        flush(stdout)
-
-        if old_length != new_length
-            write_atomic(lines, path)
-        end
-
-        if isempty(unsolved)
-            return nothing
-        end
-
-        while next_modulus^N <= ball_size
-
-            old_length = length(unsolved)
-            modulus_search!(lines, unsolved, next_modulus)
-            new_length = length(unsolved)
-
-            println("Solved $(old_length - new_length) equations at modulus $(next_modulus).")
-            println("$(new_length) unsolved equations remain.")
-            flush(stdout)
-
-            if old_length != new_length
-                write_atomic(lines, path)
+    if roots && modulus
+        next_modulus = 2
+        for k = zero(Int):typemax(Int)
+            ball_size = root_step!(lines, unsolved, path, k)
+            while next_modulus^N <= ball_size
+                modulus_step!(lines, unsolved, path, next_modulus)
+                next_modulus += 1
             end
-
-            if isempty(unsolved)
-                return nothing
+        end
+    elseif roots
+        for k = zero(Int):typemax(Int)
+            root_step!(lines, unsolved, path, k)
+        end
+    elseif modulus
+        next_modulus = 2
+        while true
+            if length(factor(next_modulus)) == 1
+                modulus_step!(lines, unsolved, path, next_modulus)
             end
-
             next_modulus += 1
-
         end
-
     end
 
     return nothing
 end
 
 
-main(Val(parse(Int, ARGS[1])), ARGS[2])
+main(
+    Val(parse(Int, ARGS[1])), ARGS[2];
+    roots=!("--modulus-only" in ARGS),
+    modulus=!("--roots-only" in ARGS)
+)
