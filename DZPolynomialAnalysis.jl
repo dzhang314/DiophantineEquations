@@ -1,50 +1,11 @@
 module DZPolynomialAnalysis
 
-export to_wolfram, find_height_reducing_transformation,
+export find_height_reducing_transformation,
     has_real_root, is_positive_definite,
     has_unbounded_projection, has_unbounded_vieta_projection
 
 using DZPolynomials
 using MathLink
-
-################################################################################
-
-const WOLFRAM_VARIABLES = Dict(
-    k => MathLink.WSymbol.(v)
-    for (k, v) in DZPolynomials.CANONICAL_VARIABLES
-)
-
-function to_wolfram(p::Polynomial{T, N, I}) where {T, N, I}
-    vars = WOLFRAM_VARIABLES[N]
-    terms = Any[]
-    for (m, c) in p
-        factors = Any[]
-        if !isone(c)
-            push!(factors, Int(c))
-        end
-        for (i, n) in enumerate(m)
-            if isone(n)
-                push!(factors, vars[i])
-            elseif !iszero(n)
-                push!(factors, W"Power"(vars[i], Int(n)))
-            end
-        end
-        if isempty(factors)
-            push!(terms, 1)
-        elseif length(factors) == 1
-            push!(terms, factors[1])
-        else
-            push!(terms, W"Times"(factors...))
-        end
-    end
-    if isempty(terms)
-        return 0
-    elseif length(terms) == 1
-        return terms[1]
-    else
-        return W"Plus"(terms...)
-    end
-end
 
 ################################################################################
 
@@ -59,13 +20,13 @@ end
 function candidate_transformations(num_vars::Int, radius::Int)
     vars = WOLFRAM_VARIABLES[num_vars]
     result = MathLink.WExpr[]
-    for k = 1 : radius
-        for i = 1 : num_vars
+    for k = 1:radius
+        for i = 1:num_vars
             push!(result, W"Rule"(vars[i], W"Plus"(vars[i], k)))
             push!(result, W"Rule"(vars[i], W"Subtract"(vars[i], k)))
         end
-        for i = 1 : num_vars
-            for j = 1 : num_vars
+        for i = 1:num_vars
+            for j = 1:num_vars
                 if i != j
                     push!(result, W"Rule"(vars[i],
                         W"Plus"(vars[i], W"Times"(k, vars[j]))
@@ -80,8 +41,8 @@ function candidate_transformations(num_vars::Int, radius::Int)
     return result
 end
 
-function find_height_reducing_transformation(p::Polynomial{T, N, I},
-                                             radius::Int) where {T, N, I}
+function find_height_reducing_transformation(p::Polynomial{T,N,I},
+    radius::Int) where {T,N,I}
     wp = to_wolfram(p)
     rules = W"List"([W"Rule"(var, 2) for var in WOLFRAM_VARIABLES[N]]...)
     height = compute_height(wp, rules)
@@ -106,17 +67,17 @@ function parse_bool(expr)
     end
 end
 
-function has_real_root(p::Polynomial{T, N, I}) where {T, N, I}
+function has_real_root(p::Polynomial{T,N,I}) where {T,N,I}
     stmt = W"Exists"(WOLFRAM_VARIABLES[N], W"Equal"(to_wolfram(p), 0))
     return parse_bool(weval(W"Resolve"(stmt, W"Reals")))
 end
 
-function is_positive_definite(p::Polynomial{T, N, I}) where {T, N, I}
+function is_positive_definite(p::Polynomial{T,N,I}) where {T,N,I}
     stmt = W"ForAll"(WOLFRAM_VARIABLES[N], W"Greater"(to_wolfram(p), 0))
     return parse_bool(weval(W"Resolve"(stmt, W"Reals")))
 end
 
-function has_unbounded_projection(p::Polynomial{T, N, I}) where {T, N, I}
+function has_unbounded_projection(p::Polynomial{T,N,I}) where {T,N,I}
     vars = WOLFRAM_VARIABLES[N]
     stmt = W"ForAll"(W"T", W"Exists"(vars, W"And"(
         W"Equal"(to_wolfram(p), 0),
@@ -125,7 +86,7 @@ function has_unbounded_projection(p::Polynomial{T, N, I}) where {T, N, I}
     return parse_bool(weval(W"Resolve"(stmt, W"Reals")))
 end
 
-function vieta_constraints(p::Polynomial{T, N, I}) where {T, N, I}
+function vieta_constraints(p::Polynomial{T,N,I}) where {T,N,I}
     wp = to_wolfram(p)
     result = MathLink.WExpr[]
     for var in WOLFRAM_VARIABLES[N]
@@ -148,7 +109,7 @@ function vieta_constraints(p::Polynomial{T, N, I}) where {T, N, I}
     return result
 end
 
-function has_unbounded_vieta_projection(p::Polynomial{T, N, I}) where {T, N, I}
+function has_unbounded_vieta_projection(p::Polynomial{T,N,I}) where {T,N,I}
     vars = WOLFRAM_VARIABLES[N]
     stmt = W"ForAll"(W"T", W"Exists"(vars, W"And"(
         W"Equal"(to_wolfram(p), 0),
