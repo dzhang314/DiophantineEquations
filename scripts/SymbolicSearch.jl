@@ -8,9 +8,6 @@ using SymbolicAnalysis
 using SymbolicAnalysis: delete, parse_bool, wolfram_variables, wolfram_polynomial
 
 
-################################################################################
-
-
 function structure_search!(
     lines::Vector{String},
     unsolved::Vector{Pair{Int,DiophantinePolynomial{N}}}
@@ -30,9 +27,6 @@ function structure_search!(
 end
 
 
-################################################################################
-
-
 function real_roots_search!(
     lines::Vector{String},
     unsolved::Vector{Pair{Int,DiophantinePolynomial{N}}}
@@ -47,9 +41,6 @@ function real_roots_search!(
     deleteat!(unsolved, to_delete)
     return nothing
 end
-
-
-################################################################################
 
 
 function compact_roots_search!(
@@ -74,9 +65,6 @@ function compact_roots_search!(
     deleteat!(unsolved, to_delete)
     return nothing
 end
-
-
-################################################################################
 
 
 function compact_univariate_projection_search!(

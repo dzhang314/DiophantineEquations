@@ -57,35 +57,6 @@ end
 
 ################################################################################
 
-function parse_bool(expr)
-    if expr == W"True"
-        return true
-    elseif expr == W"False"
-        return false
-    else
-        error()
-    end
-end
-
-function has_real_root(p::Polynomial{T,N,I}) where {T,N,I}
-    stmt = W"Exists"(WOLFRAM_VARIABLES[N], W"Equal"(to_wolfram(p), 0))
-    return parse_bool(weval(W"Resolve"(stmt, W"Reals")))
-end
-
-function is_positive_definite(p::Polynomial{T,N,I}) where {T,N,I}
-    stmt = W"ForAll"(WOLFRAM_VARIABLES[N], W"Greater"(to_wolfram(p), 0))
-    return parse_bool(weval(W"Resolve"(stmt, W"Reals")))
-end
-
-function has_unbounded_projection(p::Polynomial{T,N,I}) where {T,N,I}
-    vars = WOLFRAM_VARIABLES[N]
-    stmt = W"ForAll"(W"T", W"Exists"(vars, W"And"(
-        W"Equal"(to_wolfram(p), 0),
-        [W"Greater"(W"Power"(var, 2), W"T") for var in vars]...
-    )))
-    return parse_bool(weval(W"Resolve"(stmt, W"Reals")))
-end
-
 function vieta_constraints(p::Polynomial{T,N,I}) where {T,N,I}
     wp = to_wolfram(p)
     result = MathLink.WExpr[]
